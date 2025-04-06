@@ -209,6 +209,7 @@ public class HomeFragment extends Fragment {
         folderRepository.deleteFolder(folder);  // Xóa Folder từ cơ sở dữ liệu
         nestedFoldersDesks = getFoldersFromLocalDb();  // Cập nhật danh sách
         adapter.updateFolderList(nestedFoldersDesks);  // Cập nhật giao diện
+        allDesks = deskRepository.getAllDesks();  // Cập nhật danh sách Desk
         Toast.makeText(getContext(), "Folder deleted", Toast.LENGTH_SHORT).show();
     }
 
@@ -279,6 +280,7 @@ public class HomeFragment extends Fragment {
         deskRepository.deleteDesk(desk);  // Xóa Desk từ cơ sở dữ liệu
         nestedFoldersDesks = getFoldersFromLocalDb();  // Cập nhật danh sách
         adapter.updateFolderList(nestedFoldersDesks);  // Cập nhật giao diện
+        allDesks = deskRepository.getAllDesks();  // Cập nhật danh sách Desk
         Toast.makeText(getContext(), "Desk deleted", Toast.LENGTH_SHORT).show();
     }
 
@@ -411,6 +413,7 @@ public class HomeFragment extends Fragment {
             parentFolder.addDesk(newDesk);
             parentFolder.setExpanded(true);
             adapter.updateFolderList(nestedFoldersDesks);
+            allDesks = deskRepository.getAllDesks();  // Cập nhật danh sách Desk
             Toast.makeText(requireContext(), "Desk created successfully", Toast.LENGTH_SHORT).show();
         } else {
             Toast.makeText(requireContext(), "Failed to create desk", Toast.LENGTH_SHORT).show();
