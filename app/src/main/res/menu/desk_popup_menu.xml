@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/desk_action_edit"
+        android:icon="@android:drawable/ic_menu_edit"
+        android:title="Edit" />
+    <item
+        android:id="@+id/desk_action_public"
+        android:icon="@android:drawable/ic_menu_add"
+        android:title="Make public" />
+    <item
+        android:id="@+id/desk_action_delete"
+        android:icon="@android:drawable/ic_menu_delete"
+        android:title="Delete" />
+</menu>
