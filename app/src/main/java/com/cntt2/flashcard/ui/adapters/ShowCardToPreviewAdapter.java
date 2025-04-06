@@ -13,11 +13,11 @@ import com.cntt2.flashcard.model.Card;
 
 import java.util.List;
 
-public class ShowStudyCardAdapter extends RecyclerView.Adapter<ShowStudyCardAdapter.CardViewHolder> {
+public class ShowCardToPreviewAdapter extends RecyclerView.Adapter<ShowCardToPreviewAdapter.CardViewHolder> {
 
     private final List<Card> cardList;
 
-    public ShowStudyCardAdapter(List<Card> cardList) {
+    public ShowCardToPreviewAdapter(List<Card> cardList) {
         this.cardList = cardList;
     }
 

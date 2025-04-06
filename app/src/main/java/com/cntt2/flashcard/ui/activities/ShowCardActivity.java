@@ -6,8 +6,6 @@ import android.animation.ObjectAnimator;
 import android.os.Bundle;
 import android.view.View;
 import android.webkit.WebView;
-import android.widget.Button;
-import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -16,41 +14,31 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.cntt2.flashcard.R;
-import com.cntt2.flashcard.model.Card;
-import com.cntt2.flashcard.ui.adapters.ShowStudyCardToLearnAdapter;
+import com.cntt2.flashcard.ui.adapters.ShowCardToPreviewAdapter;
 import com.cntt2.flashcard.ui.animation.ZoomOutPageTransformer;
+import com.cntt2.flashcard.model.Card;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class StudyActivity extends AppCompatActivity {
+public class ShowCardActivity extends AppCompatActivity {
 
     private ViewPager2 viewPagerStudyCard;
-    TextView tvShowAnswer, tvStudyCardCompletedShow, tvStudyCardStep;
+    TextView tvShowAnswer;
     LinearLayout FrontLayoutUnder, BackLayoutUnder;
-    Button btnAgain, btnHard, btnGood, btnEasy, btnStudyCardCompletedShow;
-    ImageButton  imageButtonStudyCardCancel, btnHamburgerMenuStudyCardOption;
-    private ShowStudyCardToLearnAdapter cardAdapter;
+
+    private ShowCardToPreviewAdapter cardAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.startstudy); // Sử dụng layout study.xml
+        setContentView(R.layout.show_card); // Sử dụng layout study.xml
 
         // Ánh xạ ViewPager2
-        viewPagerStudyCard = findViewById(R.id.viewPagerStudyCard);
-        tvShowAnswer = findViewById(R.id.tvStudyCardFrontShowAnswer);
-        FrontLayoutUnder = findViewById(R.id.linearLayoutStudyCardFrontLayoutUnder);
-        BackLayoutUnder = findViewById(R.id.linearLayoutStudyCardBackLayoutUnder);
-        btnAgain = findViewById(R.id.btnStudyCardBackAgain);
-        btnHard = findViewById(R.id.btnStudyCardBackHard);
-        btnGood = findViewById(R.id.btnStudyCardBackGood);
-        btnEasy = findViewById(R.id.btnStudyCardBackEady);
-        tvStudyCardCompletedShow= findViewById(R.id.tvStudyCardCompletedShow);
-        btnStudyCardCompletedShow= findViewById(R.id.btnStudyCardCompletedShow);
-        tvStudyCardStep= findViewById(R.id.tvStudyCardStep);
-        imageButtonStudyCardCancel= findViewById(R.id.imageButtonStudyCardCancel);
-        btnHamburgerMenuStudyCardOption= findViewById(R.id.btnHamburgerMenuStudyCardOption);
+        viewPagerStudyCard = findViewById(R.id.viewPagerShowCard);
+        tvShowAnswer = findViewById(R.id.tvShowCardFromFront);
+        FrontLayoutUnder = findViewById(R.id.linearLayoutShowCardFrontLayoutUnder);
+        BackLayoutUnder = findViewById(R.id.linearLayoutShowCardBackLayoutUnder);
 
         // Tạo danh sách thẻ (sample data)
         List<Card> cardList = new ArrayList<>();
@@ -69,17 +57,45 @@ public class StudyActivity extends AppCompatActivity {
 
         cardList.add(new Card("Cat", "Mèo", "2025-04-05"));
         cardList.add(new Card("Book", "Sách", "2025-04-05"));
+        cardList.add(new Card("Apple<p><img src=\"https://richtexteditor.com/images/editor-image.png\" width=\"100%\"/></p>", "Táo", "2025-04-05"));
+        cardList.add(new Card("Dog<p><img src=\"https://richtexteditor.com/images/editor-image.png\" width=\"100%\"/></p>", "Chó", "2025-04-05"));
+
 
         // Tạo adapter và gắn vào ViewPager2
-        cardAdapter = new ShowStudyCardToLearnAdapter(cardList);
+        cardAdapter = new ShowCardToPreviewAdapter(cardList);
         viewPagerStudyCard.setAdapter(cardAdapter);
-
-        viewPagerStudyCard.setUserInputEnabled(false); // Khóa vuốt ngang
-
 
         // Thêm hiệu ứng hoạt ảnh khi chuyển thẻ (tuỳ chọn)
         viewPagerStudyCard.setPageTransformer(new ZoomOutPageTransformer());
 
+
+
+        // Đăng ký callback để theo dõi sự kiện khi vuốt qua các thẻ
+        viewPagerStudyCard.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+            @Override
+            public void onPageSelected(int position) {
+                super.onPageSelected(position);
+                fadeLayouts(FrontLayoutUnder, BackLayoutUnder, true);
+
+                // Lấy RecyclerView từ ViewPager2
+                RecyclerView recyclerView = (RecyclerView) viewPagerStudyCard.getChildAt(0);
+
+                // Lấy ViewHolder tại vị trí hiện tại
+                RecyclerView.ViewHolder holder = recyclerView.findViewHolderForAdapterPosition(position);
+
+                if (holder instanceof ShowCardToPreviewAdapter.CardViewHolder) {
+                    ShowCardToPreviewAdapter.CardViewHolder cardHolder = (ShowCardToPreviewAdapter.CardViewHolder) holder;
+
+                    // Đảm bảo hiển thị mặt trước và ẩn mặt sau
+                    cardHolder.webFront.setVisibility(View.VISIBLE);
+                    cardHolder.webBack.setVisibility(View.GONE);
+
+                    cardHolder.webFront.setRotationY(0f);
+                    cardHolder.webBack.setRotationY(0f);
+                }
+
+            }
+        });
         // Xử lý sự kiện nhấn vào "Show Answer"
         FrontLayoutUnder.setOnClickListener(v -> {
             View webFront = findViewById(R.id.WebViewCardItemFront);
@@ -101,43 +117,7 @@ public class StudyActivity extends AppCompatActivity {
             cardAdapter.notifyItemChanged(viewPagerStudyCard.getCurrentItem());
         });
 
-        // Đăng ký callback để theo dõi sự kiện khi vuốt qua các thẻ
-        viewPagerStudyCard.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
-            @Override
-            public void onPageSelected(int position) {
-                super.onPageSelected(position);
-                fadeLayouts(FrontLayoutUnder, BackLayoutUnder, true);
-
-                // Cập nhật trạng thái thẻ hiện tại vào tvStudyCardStep
-                int totalItems = cardAdapter.getItemCount();  // Tổng số thẻ
-
-                String stepText = getString(R.string.study_card_step, position + 1, totalItems);
-                tvStudyCardStep.setText(stepText);
-                //tvStudyCardStep.setText((position + 1) + "/" + totalItems);  // Cập nhật theo định dạng x/y
-
-                // Lấy RecyclerView từ ViewPager2
-                RecyclerView recyclerView = (RecyclerView) viewPagerStudyCard.getChildAt(0);
-
-                // Lấy ViewHolder tại vị trí hiện tại
-                RecyclerView.ViewHolder holder = recyclerView.findViewHolderForAdapterPosition(position);
-
-                if (holder instanceof ShowStudyCardToLearnAdapter.CardViewHolder) {
-                    ShowStudyCardToLearnAdapter.CardViewHolder cardHolder = (ShowStudyCardToLearnAdapter.CardViewHolder) holder;
-
-                    // Đảm bảo hiển thị mặt trước và ẩn mặt sau
-                    cardHolder.webFront.setVisibility(View.VISIBLE);
-                    cardHolder.webBack.setVisibility(View.GONE);
-
-
-
-                    cardHolder.webFront.setRotationY(0f);
-                    cardHolder.webBack.setRotationY(0f);
-                }
-
-            }
-        });
-
-        btnAgain.setOnClickListener(v -> {
+        BackLayoutUnder.setOnClickListener(v -> {
             // Đặt lại trạng thái thẻ hiện tại
             FrontLayoutUnder.setVisibility(View.VISIBLE);  // Hiển thị mặt trước
             BackLayoutUnder.setVisibility(View.GONE);     // Ẩn mặt sau
@@ -153,10 +133,6 @@ public class StudyActivity extends AppCompatActivity {
             // Cập nhật lại dữ liệu trong adapter khi mặt trước/sau thay đổi
             cardAdapter.notifyItemChanged(viewPagerStudyCard.getCurrentItem());
         });
-
-        btnHard.setOnClickListener(v -> goToNextCard());
-        btnGood.setOnClickListener(v -> goToNextCard());
-        btnEasy.setOnClickListener(v -> goToNextCard());
 
     }
 
@@ -218,21 +194,6 @@ public class StudyActivity extends AppCompatActivity {
         // Chạy các animation đồng thời
         frontFade.start();
         backFade.start();
-    }
-
-    private void goToNextCard() {
-        int currentItem = viewPagerStudyCard.getCurrentItem();
-        int totalItems = cardAdapter.getItemCount();
-
-        if (currentItem < totalItems - 1) {
-            viewPagerStudyCard.setCurrentItem(currentItem + 1);
-        } else {
-            viewPagerStudyCard.setVisibility(View.GONE);
-            FrontLayoutUnder.setVisibility(View.GONE);
-            BackLayoutUnder.setVisibility(View.GONE);
-            tvStudyCardCompletedShow.setVisibility(View.VISIBLE);
-            btnStudyCardCompletedShow.setVisibility(View.VISIBLE);
-        }
     }
 
 
