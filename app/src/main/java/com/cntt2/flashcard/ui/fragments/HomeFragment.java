@@ -1,5 +1,6 @@
 package com.cntt2.flashcard.ui.fragments;
 
+import android.app.Dialog;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -109,7 +110,16 @@ public class HomeFragment extends Fragment {
                     editFolder((Folder) selectedItem);
                     return true;
                 } else if (item.getItemId() == R.id.folder_action_delete) {
-                    deleteFolder((Folder) selectedItem);
+                    // Dialog xác nhận xóa
+                    new android.app.AlertDialog.Builder(requireContext())
+                            .setTitle("Delete Folder")
+                            .setMessage("Are you sure you want to delete this folder?")
+                            .setPositiveButton("Yes", (dialog, which) -> {
+                                deleteFolder((Folder) selectedItem);
+                            })
+                            .setNegativeButton("No", null)
+                            .show();
+
                     return true;
                 }
             } else if (selectedItem instanceof Desk) {
@@ -121,7 +131,15 @@ public class HomeFragment extends Fragment {
                     handlePublicDesk((Desk) selectedItem);
                     return true;
                 } else if (item.getItemId() == R.id.desk_action_delete) {
-                    deleteDesk((Desk) selectedItem);
+                    // Dialog xác nhận xóa
+                    new android.app.AlertDialog.Builder(requireContext())
+                            .setTitle("Delete Desk")
+                            .setMessage("Are you sure you want to delete this desk?")
+                            .setPositiveButton("Yes", (dialog, which) -> {
+                                deleteDesk((Desk) selectedItem);
+                            })
+                            .setNegativeButton("No", null)
+                            .show();
                     return true;
                 }
             }
