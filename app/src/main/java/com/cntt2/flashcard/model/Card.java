@@ -15,6 +15,13 @@ public class Card {
         this.createdAt = createdAt;
     }
 
+    public Card(String front, String back, int deskId, String createdAt) {
+        this.front = front;
+        this.back = back;
+        this.createdAt = createdAt;
+        this.deskId = deskId;
+    }
+
     public int getId() {
         return id;
     }

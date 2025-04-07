@@ -14,8 +14,12 @@ public class CardRepository {
         cardDao = new CardDao(context);
     }
 
-    public void insertCard(Card card) {
-        cardDao.insertCard(card);
+    public long insertCard(Card card) {
+        return cardDao.insertCard(card);
+    }
+
+    public void updateCard(Card card) {
+        cardDao.updateCard(card);
     }
 
     public void deleteCard(Card card) {

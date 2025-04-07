@@ -9,6 +9,7 @@ import android.widget.TextView;
 
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.cntt2.flashcard.R;
@@ -87,7 +88,7 @@ public class CardsFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_cards, container, false);
 
         recyclerView = view.findViewById(R.id.recyclerView);
-        recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 3));
+        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
 
         edtSearch = view.findViewById(R.id.edtSearch);
         txtCount = view.findViewById(R.id.txtCount);
@@ -137,9 +138,14 @@ public class CardsFragment extends Fragment {
 
     public void addNewCard(Card newCard) {
         if (cardList.size() < MAX_CARDS) {
-            cardList.add(newCard);
-            updateCardCount();
-            adapter.notifyDataSetChanged();
+            newCard.setDeskId(deskId);
+            long insertedId = cardRepository.insertCard(newCard);
+            if (insertedId != -1) {
+                newCard.setId((int) insertedId);
+                cardList = cardRepository.getCardsByDeskId(deskId);
+                adapter.setData(cardList);
+                updateCardCount();
+            }
         }
     }
 }

@@ -1,9 +1,13 @@
 package com.cntt2.flashcard.ui.adapters;
 
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -31,7 +35,10 @@ public class FlashcardAdapter extends RecyclerView.Adapter<FlashcardAdapter.Card
     @Override
     public void onBindViewHolder(@NonNull CardViewHolder holder, int position) {
         Card card = flashcardList.get(position);
-        holder.cardFront.setText(card.getFront());
+        String frontHtml = "<html><body style='color:white;'>" + card.getFront() + "</body></html>";
+        String backHtml = "<html><body style='color:white;'>" + card.getBack() + "</body></html>";
+        holder.cardFront.loadDataWithBaseURL("", frontHtml, "text/html", "UTF-8", null);
+        holder.cardBack.loadDataWithBaseURL("", backHtml, "text/html", "UTF-8", null);
     }
 
     @Override
@@ -40,11 +47,15 @@ public class FlashcardAdapter extends RecyclerView.Adapter<FlashcardAdapter.Card
     }
 
     public static class CardViewHolder extends RecyclerView.ViewHolder {
-        TextView cardFront;
+        WebView cardFront;
+        WebView cardBack;
 
         public CardViewHolder(@NonNull View itemView) {
             super(itemView);
             cardFront = itemView.findViewById(R.id.tvCardFront);
+            cardFront.setBackgroundColor(0x00000000); // Set transparent background
+            cardBack = itemView.findViewById(R.id.tvCardBack);
+            cardBack.setBackgroundColor(0x00000000); // Set transparent background
         }
     }
 
@@ -52,5 +63,4 @@ public class FlashcardAdapter extends RecyclerView.Adapter<FlashcardAdapter.Card
         this.flashcardList = newList;
         notifyDataSetChanged();
     }
-
 }

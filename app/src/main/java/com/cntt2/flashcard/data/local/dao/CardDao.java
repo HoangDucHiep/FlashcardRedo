@@ -78,4 +78,15 @@ public class CardDao {
         db.close();
         return cards;
     }
+
+    public void updateCard(Card card) {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put("desk_id", card.getDeskId());
+        values.put("front", card.getFront());
+        values.put("back", card.getBack());
+        values.put("created_at", card.getCreatedAt());
+        db.update("cards", values, "id = ?", new String[]{String.valueOf(card.getId())});
+        db.close();
+    }
 }
