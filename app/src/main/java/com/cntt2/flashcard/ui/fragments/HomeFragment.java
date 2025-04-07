@@ -1,6 +1,7 @@
 package com.cntt2.flashcard.ui.fragments;
 
 import android.app.Dialog;
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -23,6 +24,7 @@ import com.cntt2.flashcard.data.repository.DeskRepository;
 import com.cntt2.flashcard.data.repository.FolderRepository;
 import com.cntt2.flashcard.model.Desk;
 import com.cntt2.flashcard.model.Folder;
+import com.cntt2.flashcard.ui.activities.ListCardActivity;
 import com.cntt2.flashcard.ui.adapters.ShowFoldersAndDecksAdapter;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -69,8 +71,16 @@ public class HomeFragment extends Fragment {
             return true;
         });
 
+        ShowFolderAndDeckLV.setOnItemClickListener((parent, view1, position, id) -> {
+            Object selectedItem = adapter.getItem(position);
+            if (selectedItem instanceof Desk) {
+                Desk selectedDesk = (Desk) selectedItem;
+                Intent intent = new Intent(getActivity(), ListCardActivity.class);
+                intent.putExtra("deskId", selectedDesk.getId());
+                startActivity(intent);
+            }
 
-
+        });
 
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
@@ -372,7 +382,7 @@ public class HomeFragment extends Fragment {
             Folder parentFolder = allFolders.get(selectedPosition - 1);
             newFolder.setParentFolderId(parentFolder.getId());
             parentFolder.addSubFolder(newFolder);
-            parentFolder.setExpanded(true);
+            //parentFolder.setExpanded(true);
         }
 
         long insertedId = folderRepository.insertFolder(newFolder);
@@ -429,7 +439,7 @@ public class HomeFragment extends Fragment {
         if (insertedId != -1) {
             newDesk.setId((int) insertedId);
             parentFolder.addDesk(newDesk);
-            parentFolder.setExpanded(true);
+            //parentFolder.setExpanded(true);
             adapter.updateFolderList(nestedFoldersDesks);
             allDesks = deskRepository.getAllDesks();  // Cập nhật danh sách Desk
             Toast.makeText(requireContext(), "Desk created successfully", Toast.LENGTH_SHORT).show();

@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.cntt2.flashcard.R;
+import com.cntt2.flashcard.data.repository.CardRepository;
 import com.cntt2.flashcard.model.Card;
 import com.cntt2.flashcard.ui.adapters.FlashcardAdapter;
 
@@ -32,6 +33,8 @@ public class CardsFragment extends Fragment {
     private EditText edtSearch;
     private TextView txtCount;
     private final int MAX_CARDS = 200;
+    private int deskId;
+    private CardRepository cardRepository;
 
     public CardsFragment(List<Card> cardList) {
         this.cardList = cardList;
@@ -73,9 +76,9 @@ public class CardsFragment extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
+            deskId = getArguments().getInt("deskId", -1); // Lấy deskId từ Bundle
         }
+        cardRepository = new CardRepository(requireContext());
     }
 
     @Override
@@ -89,18 +92,14 @@ public class CardsFragment extends Fragment {
         edtSearch = view.findViewById(R.id.edtSearch);
         txtCount = view.findViewById(R.id.txtCount);
 
-        cardList.add(new Card("Name", "", ""));
-        cardList.add(new Card("Anh", "", ""));
-        cardList.add(new Card("Gh Uuu", "", ""));
-        cardList.add(new Card("Nmm", "", ""));
-        cardList.add(new Card("Nguyen quy anh", "", ""));
-        cardList.add(new Card("Nmmmm", "", ""));
-        cardList.add(new Card("Name", "", ""));
+        if (deskId != -1) {
+            cardList = cardRepository.getCardsByDeskId(deskId);
+        } else {
+            cardList = new ArrayList<>(); // Nếu không có deskId, hiển thị danh sách rỗng
+        }
 
         adapter = new FlashcardAdapter(cardList);
-
         recyclerView.setAdapter(adapter);
-
         adapter.notifyDataSetChanged();
         updateCardCount();
         // Handle search functionality

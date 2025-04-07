@@ -21,6 +21,11 @@
         <activity
             android:name=".ui.activities.ListCardActivity"
             android:exported="false" />
+        <activity android:name=".ui.activities.StudyActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.activities.ShowCardActivity"
+            android:exported="false" />
         <activity
             android:name=".ui.activities.MainActivity"
             android:exported="true">

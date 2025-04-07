@@ -21,6 +21,8 @@ public class ListCardActivity extends AppCompatActivity {
     private Button btnCard;
     private Button btnThongKe;
 
+    private int deskId;
+
     private static final int ADD_CARD_REQUEST_CODE = 100;
 
     @Override
@@ -33,14 +35,27 @@ public class ListCardActivity extends AppCompatActivity {
         btnCard = findViewById(R.id.btnCard);
         btnThongKe = findViewById(R.id.btnThongKe);
 
+        deskId = getIntent().getIntExtra("deskId", -1);
+
+        if (deskId == -1)
+        {
+            finish();
+            return;
+        }
+
 
         btnLearn.setOnClickListener(view -> {
             resetButtonBackground();
             btnLearn.setBackgroundResource(R.drawable.toggle_button_background);
 
+            LearnFragment learnFragment = new LearnFragment();
+            Bundle bundle = new Bundle();
+            bundle.putInt("deskId", deskId);
+            learnFragment.setArguments(bundle);
+
             // Show LearnModeFragment
             FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-            transaction.replace(R.id.fragmentContainer, new LearnFragment());
+            transaction.replace(R.id.fragmentContainer, learnFragment);
             transaction.commit();
         });
 
@@ -49,8 +64,13 @@ public class ListCardActivity extends AppCompatActivity {
             btnCard.setBackgroundResource(R.drawable.toggle_button_background);
 
             // Show CardFragment
+            CardsFragment cardsFragment = new CardsFragment();
+            Bundle bundle = new Bundle();
+            bundle.putInt("deskId", deskId);
+            cardsFragment.setArguments(bundle);
+
             FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-            transaction.replace(R.id.fragmentContainer, new CardsFragment());
+            transaction.replace(R.id.fragmentContainer, cardsFragment);
             transaction.commit();
         });
 
@@ -58,23 +78,32 @@ public class ListCardActivity extends AppCompatActivity {
             resetButtonBackground();
             btnThongKe.setBackgroundResource(R.drawable.toggle_button_background);
 
+            StatisticsFragment statisticsFragment = new StatisticsFragment();
+            Bundle bundle = new Bundle();
+            bundle.putInt("deskId", deskId);
+            statisticsFragment.setArguments(bundle);
+
             FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-            transaction.replace(R.id.fragmentContainer, new StatisticsFragment());
+            transaction.replace(R.id.fragmentContainer, statisticsFragment);
             transaction.commit();
         });
 
 
         // Initial Fragment (CardFragment)
         if (savedInstanceState == null) {
+            CardsFragment cardsFragment = new CardsFragment();
+            Bundle bundle = new Bundle();
+            bundle.putInt("deskId", deskId);
+            cardsFragment.setArguments(bundle);
+
             FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-            transaction.replace(R.id.fragmentContainer, new CardsFragment());
+            transaction.replace(R.id.fragmentContainer, cardsFragment);
             transaction.commit();
         }
 
         btnAdd.setOnClickListener(view -> {
-            //if (cardList.size() >= 200) return;
-
             Intent intent = new Intent(ListCardActivity.this, AddCardActivity.class);
+            intent.putExtra("deskId", deskId);
             startActivityForResult(intent, ADD_CARD_REQUEST_CODE);
         });
     }
