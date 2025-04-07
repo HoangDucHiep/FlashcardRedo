@@ -1,18 +1,24 @@
 package com.cntt2.flashcard.ui.activities;
 
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 
 import com.cntt2.flashcard.App;
@@ -34,6 +40,14 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import java.util.ArrayList;
+import java.util.List;
 
 import jp.wasabeef.richeditor.RichEditor;
 
@@ -55,9 +69,63 @@ public class AddCardActivity extends AppCompatActivity {
 
     private int historyIndex;
     private List<String> htmlHistory;
-    private List<String> imageHistory;
+    private List<Set<String>> imageHistory; // Danh sách các tập hợp đường dẫn ảnh
+    private Set<String> initialImages; // Lưu các ảnh ban đầu
     private Uri photoUri;
 
+    private static final int REQUEST_PERMISSIONS = 100;
+
+    private void checkPermissions() {
+        // Danh sách quyền cần xin
+        List<String> permissionsNeeded = new ArrayList<>();
+
+        // Kiểm tra quyền dựa trên phiên bản Android
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13+ dùng READ_MEDIA_IMAGES thay vì READ_EXTERNAL_STORAGE
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES)
+                    != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.READ_MEDIA_IMAGES);
+            }
+        } else {
+            // Các phiên bản Android cũ hơn
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                    != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+            }
+        }
+
+        // Kiểm tra quyền camera
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            permissionsNeeded.add(Manifest.permission.CAMERA);
+        }
+
+        // Xin quyền nếu cần
+        if (!permissionsNeeded.isEmpty()) {
+            ActivityCompat.requestPermissions(this,
+                    permissionsNeeded.toArray(new String[0]),
+                    REQUEST_PERMISSIONS);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_PERMISSIONS) {
+            boolean allGranted = true;
+            for (int result : grantResults) {
+                if (result != PackageManager.PERMISSION_GRANTED) {
+                    allGranted = false;
+                    break;
+                }
+            }
+
+            if (!allGranted) {
+                Toast.makeText(this, "Permissions required to use camera and select images",
+                        Toast.LENGTH_LONG).show();
+            }
+        }
+    }
 
     private final ActivityResultLauncher<String> pickImageLauncher = registerForActivityResult(
             new ActivityResultContracts.GetContent(),
@@ -76,10 +144,13 @@ public class AddCardActivity extends AppCompatActivity {
                 }
             });
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_card);
+
+        checkPermissions();
 
         // Initialize UI components
         edtCardContent = findViewById(R.id.edtCardContent);
@@ -92,6 +163,7 @@ public class AddCardActivity extends AppCompatActivity {
         imageHistory = new ArrayList<>();
         htmlHistory = new ArrayList<>();
         updateHistory(edtCardContent.getHtml());
+        initialImages = new HashSet<>();
 
         File photoFile = new File(getFilesDir(), "temp_photo_" + System.currentTimeMillis() + ".jpg");
         photoUri = FileProvider.getUriForFile(this,
@@ -234,20 +306,127 @@ public class AddCardActivity extends AppCompatActivity {
 
 
     private void handleImageSelection(Uri uri) {
+        try {
+            // Tạo tên file ảnh dựa trên timestamp để tránh trùng lặp
+            String fileName = "img_" + System.currentTimeMillis() + ".jpg";
+            File destFile = new File(getFilesDir(), fileName);
 
+            // Sao chép ảnh từ Uri vào bộ nhớ ứng dụng
+            InputStream in = getContentResolver().openInputStream(uri);
+            FileOutputStream out = new FileOutputStream(destFile);
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = in.read(buffer)) > 0) {
+                out.write(buffer, 0, length);
+            }
+            in.close();
+            out.close();
+
+            // Đường dẫn đầy đủ của ảnh mới
+            String fullImagePath = destFile.getAbsolutePath();
+            Log.d("ImageTracking", "Added new image: " + fullImagePath);
+
+            // Tạo URL cho ảnh và thêm vào editor
+            String imagePath = "file://" + fullImagePath;
+            edtCardContent.insertImage(imagePath, "Image " + fileName);
+
+            // Lấy HTML hiện tại và cập nhật lịch sử
+            String html = edtCardContent.getHtml();
+            updateHistory(html);
+
+        } catch (IOException e) {
+            Log.e("AddCardActivity", "Error handling image: " + e.getMessage());
+            Toast.makeText(this, "Failed to process image", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void updateHistory(String html) {
         // Cắt bỏ lịch sử sau vị trí hiện tại
         while (htmlHistory.size() > historyIndex + 1) {
             htmlHistory.remove(htmlHistory.size() - 1);
+            if (imageHistory.size() > historyIndex + 1) {
+                imageHistory.remove(imageHistory.size() - 1);
+            }
         }
+
+        // Thêm HTML mới vào lịch sử
         htmlHistory.add(html);
+
+        // Cập nhật danh sách ảnh hiện tại đang được sử dụng
+        Set<String> currentImages = extractImagePathsFromHtml(html);
+        imageHistory.add(currentImages); // Sửa lỗi tại đây
+
         historyIndex++;
     }
 
-    private void manageImageFiles(String html) {
+    private Set<String> extractImagePathsFromHtml(String html) {
+        Set<String> imagePaths = new HashSet<>();
+        if (html == null || html.isEmpty()) {
+            return imagePaths;
+        }
 
+        // Tìm tất cả các thẻ img và trích xuất thuộc tính src
+        Pattern pattern = Pattern.compile("<img[^>]+src=[\"']([^\"']+)[\"'][^>]*>");
+        Matcher matcher = pattern.matcher(html);
+
+        while (matcher.find()) {
+            String srcPath = matcher.group(1);
+            // Xử lý đường dẫn file://
+            if (srcPath.startsWith("file://")) {
+                srcPath = srcPath.substring(7); // Bỏ "file://"
+            }
+
+            // Thêm đường dẫn vào tập hợp
+            imagePaths.add(srcPath);
+            Log.d("ImagePath", "Found image path: " + srcPath);
+        }
+
+        return imagePaths;
+    }
+
+    private void manageImageFiles(String combinedHtml) {
+        try {
+            // Lấy tất cả các đường dẫn ảnh hiện đang được sử dụng trong HTML
+            Set<String> usedImages = extractImagePathsFromHtml(combinedHtml);
+            Log.d("ImageCleanup", "Found " + usedImages.size() + " images in use");
+
+            // Tìm tất cả ảnh đã thêm mới trong phiên làm việc này
+            Set<String> allImagesAddedInSession = new HashSet<>();
+
+            // Kết hợp tất cả ảnh từ mọi bước trong lịch sử
+            for (Set<String> imagesAtStep : imageHistory) {
+                allImagesAddedInSession.addAll(imagesAtStep);
+            }
+
+            // Loại bỏ các ảnh đã có từ ban đầu
+            allImagesAddedInSession.removeAll(initialImages);
+
+            // Duyệt qua danh sách ảnh đã thêm mới trong phiên
+            for (String addedImagePath : allImagesAddedInSession) {
+                boolean isUsed = false;
+
+                // Kiểm tra xem ảnh có đang được sử dụng hay không
+                for (String usedImagePath : usedImages) {
+                    if (addedImagePath.equals(usedImagePath) ||
+                            addedImagePath.endsWith(usedImagePath) ||
+                            usedImagePath.contains(new File(addedImagePath).getName())) {
+                        isUsed = true;
+                        break;
+                    }
+                }
+
+                // Nếu ảnh không còn được sử dụng, xóa nó
+                if (!isUsed) {
+                    File fileToDelete = new File(addedImagePath);
+                    boolean deleted = fileToDelete.delete();
+                    Log.d("ImageCleanup", "Deleted unused image: " +
+                            fileToDelete.getName() + ", success: " + deleted);
+                }
+            }
+
+        } catch (Exception e) {
+            Log.e("ImageCleanup", "Error cleaning up images: " + e.getMessage(), e);
+        }
     }
 
 
@@ -258,13 +437,15 @@ public class AddCardActivity extends AppCompatActivity {
             backText = edtCardContent.getHtml() != null ? edtCardContent.getHtml() : "";
         }
 
-        // Kiểm tra validation
+        // Kiểm tra nếu cả hai mặt đều trống
         if (frontText.isEmpty() && backText.isEmpty()) {
-            // Show error
+            Toast.makeText(this, "Card content cannot be empty", Toast.LENGTH_SHORT).show();
             return;
         }
 
         String currentDate = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault()).format(new Date());
+
+        manageImageFiles(frontText + backText);
 
         Intent resultIntent = new Intent();
         resultIntent.putExtra("newCardFront", frontText);

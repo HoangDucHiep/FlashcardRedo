@@ -63,4 +63,18 @@ public class FlashcardAdapter extends RecyclerView.Adapter<FlashcardAdapter.Card
         this.flashcardList = newList;
         notifyDataSetChanged();
     }
+
+    private String removeAllImageContent(String html) {
+        if (html == null || html.isEmpty()) {
+            return "";
+        }
+
+        // Bước 1: Loại bỏ tất cả các thẻ <img>
+        String result = html.replaceAll("<img[^>]*>", "");
+
+        // Bước 2: Loại bỏ dữ liệu ảnh base64
+        result = result.replaceAll("data:image/[^;]*;base64,[a-zA-Z0-9+/=]*", "");
+
+        return result;
+    }
 }
