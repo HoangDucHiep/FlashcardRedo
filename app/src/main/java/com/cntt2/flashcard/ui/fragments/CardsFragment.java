@@ -136,16 +136,10 @@ public class CardsFragment extends Fragment {
 
 
 
-    public void addNewCard(Card newCard) {
-        if (cardList.size() < MAX_CARDS) {
-            newCard.setDeskId(deskId);
-            long insertedId = cardRepository.insertCard(newCard);
-            if (insertedId != -1) {
-                newCard.setId((int) insertedId);
+    public void addNewCard() {
+
                 cardList = cardRepository.getCardsByDeskId(deskId);
                 adapter.setData(cardList);
                 updateCardCount();
-            }
-        }
     }
 }

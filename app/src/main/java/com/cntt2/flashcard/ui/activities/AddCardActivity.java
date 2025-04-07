@@ -72,6 +72,7 @@ public class AddCardActivity extends AppCompatActivity {
     private List<Set<String>> imageHistory; // Danh sách các tập hợp đường dẫn ảnh
     private Set<String> initialImages; // Lưu các ảnh ban đầu
     private Uri photoUri;
+    private File imagesDir;
 
     private static final int REQUEST_PERMISSIONS = 100;
 
@@ -135,14 +136,40 @@ public class AddCardActivity extends AppCompatActivity {
                 }
             });
 
-    // ActivityResultLauncher để chụp ảnh
+    // ActivityResultLauncher để chụp ảnh /././. asdasd
     private final ActivityResultLauncher<Uri> takePictureLauncher = registerForActivityResult(
             new ActivityResultContracts.TakePicture(),
             result -> {
                 if (result) {
-                    handleImageSelection(photoUri);
+                    try {
+                        // Lấy tên file từ URI
+                        String fileName = photoUri.getPath().substring(photoUri.getPath().lastIndexOf("/") + 1);
+
+                        // Tạo đường dẫn đầy đủ
+                        File imageFile = new File(getFilesDir(), "images/" + fileName);
+
+                        // Tạo đường dẫn file:// để chèn vào editor
+                        String fullImagePath = "file://" + imageFile.getAbsolutePath();
+
+                        Log.d("ImageHandling", "Photo full path: " + fullImagePath);
+                        Log.d("ImageHandling", "Photo file exists: " + imageFile.exists());
+
+                        // Chèn ảnh vào editor
+                        edtCardContent.insertImage(fullImagePath, "Photo " + fileName);
+
+                        // Cập nhật lịch sử
+                        String html = edtCardContent.getHtml();
+                        updateHistory(html);
+
+                    } catch (Exception e) {
+                        Log.e("AddCardActivity", "Error processing camera image: " + e.getMessage(), e);
+                        Toast.makeText(AddCardActivity.this, "Failed to process photo", Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    Log.d("ImageHandling", "User cancelled taking photo");
                 }
-            });
+            }
+    );
 
 
     @Override
@@ -165,7 +192,12 @@ public class AddCardActivity extends AppCompatActivity {
         updateHistory(edtCardContent.getHtml());
         initialImages = new HashSet<>();
 
-        File photoFile = new File(getFilesDir(), "temp_photo_" + System.currentTimeMillis() + ".jpg");
+        imagesDir = new File(getFilesDir(), "images");
+        if (!imagesDir.exists()) {
+            imagesDir.mkdirs();
+        }
+
+        File photoFile = new File(imagesDir, "img_" + System.currentTimeMillis() + ".jpg");
         photoUri = FileProvider.getUriForFile(this,
                 "com.cntt2.flashcard.fileprovider", photoFile);
 
@@ -297,7 +329,23 @@ public class AddCardActivity extends AppCompatActivity {
                         // Chọn ảnh từ thư viện
                         pickImageLauncher.launch("image/*");
                     } else {
-                        // Chụp ảnh
+                        // Tạo file ảnh với tên chuẩn ngay từ đầu
+                        String fileName = "img_" + System.currentTimeMillis() + ".jpg";
+
+                        // Đảm bảo thư mục images tồn tại
+                        File imagesDir = new File(getFilesDir(), "images");
+                        if (!imagesDir.exists()) {
+                            imagesDir.mkdirs();
+                        }
+
+                        // Tạo file trong thư mục images
+                        File photoFile = new File(imagesDir, fileName);
+
+                        // Tạo photoUri từ file này
+                        photoUri = FileProvider.getUriForFile(this,
+                                "com.cntt2.flashcard.fileprovider", photoFile);
+
+                        // Chụp ảnh và lưu trực tiếp vào file đã tạo
                         takePictureLauncher.launch(photoUri);
                     }
                 })
@@ -309,7 +357,7 @@ public class AddCardActivity extends AppCompatActivity {
         try {
             // Tạo tên file ảnh dựa trên timestamp để tránh trùng lặp
             String fileName = "img_" + System.currentTimeMillis() + ".jpg";
-            File destFile = new File(getFilesDir(), fileName);
+            File destFile = new File(imagesDir, fileName);
 
             // Sao chép ảnh từ Uri vào bộ nhớ ứng dụng
             InputStream in = getContentResolver().openInputStream(uri);
@@ -349,12 +397,10 @@ public class AddCardActivity extends AppCompatActivity {
             }
         }
 
-        // Thêm HTML mới vào lịch sử
         htmlHistory.add(html);
 
-        // Cập nhật danh sách ảnh hiện tại đang được sử dụng
         Set<String> currentImages = extractImagePathsFromHtml(html);
-        imageHistory.add(currentImages); // Sửa lỗi tại đây
+        imageHistory.add(currentImages);
 
         historyIndex++;
     }
@@ -443,16 +489,27 @@ public class AddCardActivity extends AppCompatActivity {
             return;
         }
 
+
         String currentDate = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault()).format(new Date());
 
-        manageImageFiles(frontText + backText);
+        Card newCard = new Card(frontText, backText, deskId, currentDate);
 
-        Intent resultIntent = new Intent();
-        resultIntent.putExtra("newCardFront", frontText);
-        resultIntent.putExtra("newCardBack", backText);
-        resultIntent.putExtra("newCardCreatedAt", currentDate);
-        setResult(RESULT_OK, resultIntent);
-        finish();
+        long insertedId = cardRepository.insertCard(newCard);
+        if (insertedId != -1) {
+            newCard.setId((int) insertedId);
+            manageImageFiles(frontText + backText);
+            Toast.makeText(this, "Card created successfully", Toast.LENGTH_SHORT).show();
+            setResult(RESULT_OK);
+            finish();
+        } else {
+            Toast.makeText(this, "Failed to create card", Toast.LENGTH_SHORT).show();
+        }
+
+
+
+
+
+
     }
 
 

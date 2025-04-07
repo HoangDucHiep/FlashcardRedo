@@ -119,17 +119,11 @@ public class ListCardActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        if (requestCode == ADD_CARD_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
-            // Extract the new card details from the Intent
-            String front = data.getStringExtra("newCardFront");
-            String back = data.getStringExtra("newCardBack");
-            String createdAt = data.getStringExtra("newCardCreatedAt");
+        if (requestCode == ADD_CARD_REQUEST_CODE && resultCode == RESULT_OK ) {
 
-            // Add the new card to the list and update the fragment
-            Card newCard = new Card(front, back, createdAt);
             CardsFragment fragment = (CardsFragment) getSupportFragmentManager().findFragmentById(R.id.fragmentContainer);
             if (fragment != null) {
-                fragment.addNewCard(newCard);
+                fragment.addNewCard();
             }
         }
     }
