@@ -1,11 +1,14 @@
 package com.cntt2.flashcard.ui.fragments;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
@@ -15,6 +18,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.cntt2.flashcard.R;
 import com.cntt2.flashcard.data.repository.CardRepository;
 import com.cntt2.flashcard.model.Card;
+import com.cntt2.flashcard.ui.activities.AddCardActivity;
+import com.cntt2.flashcard.ui.activities.ListCardActivity;
+import com.cntt2.flashcard.ui.activities.StudyActivity;
 import com.cntt2.flashcard.ui.adapters.FlashcardAdapter;
 
 import java.util.ArrayList;
@@ -33,6 +39,7 @@ public class CardsFragment extends Fragment {
     private List<Card> cardList = new ArrayList<>();
     private EditText edtSearch;
     private TextView txtCount;
+    private Button btnStartLearnSession;
     private final int MAX_CARDS = 200;
     private int deskId;
     private CardRepository cardRepository;
@@ -92,6 +99,7 @@ public class CardsFragment extends Fragment {
 
         edtSearch = view.findViewById(R.id.edtSearch);
         txtCount = view.findViewById(R.id.txtCount);
+        btnStartLearnSession = view.findViewById(R.id.btnStartLearnSession);
 
         if (deskId != -1) {
             cardList = cardRepository.getCardsByDeskId(deskId);
@@ -115,6 +123,24 @@ public class CardsFragment extends Fragment {
 
             @Override
             public void afterTextChanged(android.text.Editable editable) {}
+        });
+
+        btnStartLearnSession.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (cardList.size() > 0) {
+                    // call StudyActivity
+                    Intent intent = new Intent(getContext(), StudyActivity.class);
+                    intent.putExtra("deskId", deskId);
+
+                    // Chuyển đến StudyActivity
+                    startActivity(intent);
+
+                } else {
+                    // Hiển thị thông báo nếu không có thẻ nào
+                    Toast.makeText(getContext(), "Không có thẻ nào để học!", Toast.LENGTH_SHORT).show();
+                }
+            }
         });
 
         return view;

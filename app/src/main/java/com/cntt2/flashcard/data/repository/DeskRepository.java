@@ -2,6 +2,7 @@ package com.cntt2.flashcard.data.repository;
 
 import android.content.Context;
 
+import com.cntt2.flashcard.App;
 import com.cntt2.flashcard.data.local.dao.CardDao;
 import com.cntt2.flashcard.data.local.dao.DeskDao;
 import com.cntt2.flashcard.model.Desk;
@@ -10,11 +11,10 @@ import java.util.List;
 
 public class DeskRepository {
     private DeskDao deskDao;
-    private CardDao cardDao;
+    private CardRepository cardRepository = App.getInstance().getCardRepository();;
 
     public DeskRepository(Context context) {
         this.deskDao = new DeskDao(context);
-        this.cardDao = new CardDao(context);
     }
 
     public List<Desk> getAllDesks() {
@@ -31,7 +31,7 @@ public class DeskRepository {
         var cards = desk.getCards();
 
         for (var card : cards) {
-            cardDao.deleteCard(card.getId());
+            cardRepository.deleteCard(card);
         }
 
         deskDao.deleteDesk(desk.getId());

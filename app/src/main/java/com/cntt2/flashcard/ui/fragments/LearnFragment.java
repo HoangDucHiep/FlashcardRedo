@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
 
 import androidx.fragment.app.Fragment;
 
@@ -15,6 +16,9 @@ import com.cntt2.flashcard.R;
  * create an instance of this fragment.
  */
 public class LearnFragment extends Fragment {
+
+    LinearLayout modeRandom;
+    LinearLayout modeOrder;
 
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER

@@ -23,9 +23,10 @@ public class App extends Application {
         super.onCreate();
         instance = this;
         databaseHelper = new DatabaseHelper(this);
-        folderRepository = new FolderRepository(this);
-        deskRepository = new DeskRepository(this);
         cardRepository = new CardRepository(this);
+        deskRepository = new DeskRepository(this);
+        folderRepository = new FolderRepository(this);
+        
         reviewRepository = new ReviewRepository(this);
         learningSessionRepository = new LearningSessionRepository(this);
 

@@ -234,10 +234,10 @@ public class HomeFragment extends Fragment {
         editFolderDialog.show();
     }
     private void deleteFolder(Folder folder) {
-        folderRepository.deleteFolder(folder);  // Xóa Folder từ cơ sở dữ liệu
-        nestedFoldersDesks = getFoldersFromLocalDb();  // Cập nhật danh sách
-        adapter.updateFolderList(nestedFoldersDesks);  // Cập nhật giao diện
-        allDesks = deskRepository.getAllDesks();  // Cập nhật danh sách Desk
+        folderRepository.deleteFolder(folder);
+        nestedFoldersDesks = getFoldersFromLocalDb();
+        adapter.updateFolderList(nestedFoldersDesks);
+        allDesks = deskRepository.getAllDesks();
         Toast.makeText(getContext(), "Folder deleted", Toast.LENGTH_SHORT).show();
     }
 

@@ -20,6 +20,7 @@ public class ListCardActivity extends AppCompatActivity {
     private Button btnLearn;
     private Button btnCard;
     private Button btnThongKe;
+    private Button btnBack;
 
     private int deskId;
 
@@ -34,6 +35,7 @@ public class ListCardActivity extends AppCompatActivity {
         btnLearn = findViewById(R.id.btnLearn);
         btnCard = findViewById(R.id.btnCard);
         btnThongKe = findViewById(R.id.btnThongKe);
+        btnBack = findViewById(R.id.btnBack);
 
         deskId = getIntent().getIntExtra("deskId", -1);
 
@@ -105,6 +107,10 @@ public class ListCardActivity extends AppCompatActivity {
             Intent intent = new Intent(ListCardActivity.this, AddCardActivity.class);
             intent.putExtra("deskId", deskId);
             startActivityForResult(intent, ADD_CARD_REQUEST_CODE);
+        });
+
+        btnBack.setOnClickListener(view -> {
+            finish();
         });
     }
 

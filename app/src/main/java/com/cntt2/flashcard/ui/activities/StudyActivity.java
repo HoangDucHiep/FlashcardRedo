@@ -3,6 +3,7 @@ package com.cntt2.flashcard.ui.activities;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.webkit.WebView;
@@ -15,7 +16,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
 
+import com.cntt2.flashcard.App;
 import com.cntt2.flashcard.R;
+import com.cntt2.flashcard.data.repository.CardRepository;
 import com.cntt2.flashcard.model.Card;
 import com.cntt2.flashcard.ui.adapters.ShowStudyCardToLearnAdapter;
 import com.cntt2.flashcard.ui.animation.ZoomOutPageTransformer;
@@ -31,6 +34,10 @@ public class StudyActivity extends AppCompatActivity {
     Button btnAgain, btnHard, btnGood, btnEasy, btnStudyCardCompletedShow;
     ImageButton  imageButtonStudyCardCancel, btnHamburgerMenuStudyCardOption;
     private ShowStudyCardToLearnAdapter cardAdapter;
+
+    CardRepository cardRepository = App.getInstance().getCardRepository();
+
+    private int deskId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,23 +59,17 @@ public class StudyActivity extends AppCompatActivity {
         imageButtonStudyCardCancel= findViewById(R.id.imageButtonStudyCardCancel);
         btnHamburgerMenuStudyCardOption= findViewById(R.id.btnHamburgerMenuStudyCardOption);
 
+        Intent intent = getIntent();
+
+        deskId = intent.getIntExtra("deskId", -1);
+
+        if (deskId == -1) {
+            finish();
+            return;
+        }
+
         // Tạo danh sách thẻ (sample data)
-        List<Card> cardList = new ArrayList<>();
-
-        cardList.add(new Card(
-                "Dog\n <p>ý là chất lượng dịch vụ của cs nguyễn trãi bị giảm mạnh luôn ấy ạ? Mình còn tưởng mình bị overthinking chứ bạn mình cũng thấy vậy. Mong cs mình train lại nhân viên chứ mặt hằm hằm xong cứ nói được câu là bỏ đi không nói lời nào, ý là không tôn trọng mình luôn ấy :)) mình chẳng dám đi nữa luôn ấy \uD83D\uDE42\n</p>",
-                wrapHtml("<p>This is a default toolbar demo of Rich text editor.</p>\n" +
-                        "<p><img src=\"https://richtexteditor.com/images/editor-image.png\" width=\"100%\"/></p>"+
-                        "<p>Dogs are mammals with sharp teeth, an excellent sense of smell, and a fine sense of hearing. Each of a dog’s four legs ends in a foot, or paw, with five toes. Each toe has a soft pad and a claw. A coat of hair keeps the dog warm. It cools off by panting and hanging its tongue out of its mouth.\n" +
-                        "\n" +
-                        "Apart from these common features, dogs come in many different sizes, shapes, and colors. Dogs that have similar sizes, looks, and behaviors make up groups called breeds. There are more than 400 different breeds of dog. Many dogs are combinations of different breeds. They are known as mutts. Some dogs are combinations of particular breeds. For example, a Labradoodle is a combination of a Labrador Retriever and a Poodle. Some of the most popular breeds are Beagles, Boxers, Bulldogs, Collies, Dachshunds, </p>"
-                        +"<p><img src=\"https://richtexteditor.com/images/editor-image.png\" width=\"100%\"/></p>"
-                ),
-                "2025-04-05"
-        ));
-
-        cardList.add(new Card("Cat", "Mèo", "2025-04-05"));
-        cardList.add(new Card("Book", "Sách", "2025-04-05"));
+        List<Card> cardList = cardRepository.getCardsByDeskId(deskId);
 
         // Tạo adapter và gắn vào ViewPager2
         cardAdapter = new ShowStudyCardToLearnAdapter(cardList);
