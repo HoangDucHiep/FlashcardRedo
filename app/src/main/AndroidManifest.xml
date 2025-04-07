@@ -9,12 +9,12 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Quyền cho việc đọc ảnh từ thư viện -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
+        android:maxSdkVersion="35" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
     <!-- Quyền cho việc lưu ảnh (chỉ cần cho Android dưới 29) -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
+        android:maxSdkVersion="35" />
 
     <!-- Quyền cho việc sử dụng camera -->
     <uses-permission android:name="android.permission.CAMERA" />

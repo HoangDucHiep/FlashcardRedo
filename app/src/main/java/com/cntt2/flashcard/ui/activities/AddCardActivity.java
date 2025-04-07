@@ -77,31 +77,25 @@ public class AddCardActivity extends AppCompatActivity {
     private static final int REQUEST_PERMISSIONS = 100;
 
     private void checkPermissions() {
-        // Danh sách quyền cần xin
         List<String> permissionsNeeded = new ArrayList<>();
 
-        // Kiểm tra quyền dựa trên phiên bản Android
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+ dùng READ_MEDIA_IMAGES thay vì READ_EXTERNAL_STORAGE
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES)
                     != PackageManager.PERMISSION_GRANTED) {
                 permissionsNeeded.add(Manifest.permission.READ_MEDIA_IMAGES);
             }
         } else {
-            // Các phiên bản Android cũ hơn
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
                     != PackageManager.PERMISSION_GRANTED) {
                 permissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE);
             }
         }
 
-        // Kiểm tra quyền camera
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED) {
             permissionsNeeded.add(Manifest.permission.CAMERA);
         }
 
-        // Xin quyền nếu cần
         if (!permissionsNeeded.isEmpty()) {
             ActivityCompat.requestPermissions(this,
                     permissionsNeeded.toArray(new String[0]),
@@ -142,24 +136,19 @@ public class AddCardActivity extends AppCompatActivity {
             result -> {
                 if (result) {
                     try {
-                        // Lấy tên file từ URI
-                        String fileName = photoUri.getPath().substring(photoUri.getPath().lastIndexOf("/") + 1);
+                        // Tạo URI content:// từ FileProvider
+                        Uri contentUri = photoUri;
 
-                        // Tạo đường dẫn đầy đủ
-                        File imageFile = new File(getFilesDir(), "images/" + fileName);
-
-                        // Tạo đường dẫn file:// để chèn vào editor
-                        String fullImagePath = "file://" + imageFile.getAbsolutePath();
-
-                        Log.d("ImageHandling", "Photo full path: " + fullImagePath);
-                        Log.d("ImageHandling", "Photo file exists: " + imageFile.exists());
+                        Log.d("ImageHandling", "Photo URI: " + contentUri);
 
                         // Chèn ảnh vào editor
-                        edtCardContent.insertImage(fullImagePath, "Photo " + fileName);
+                        edtCardContent.insertImage(contentUri.toString(), "Photo");
 
                         // Cập nhật lịch sử
                         String html = edtCardContent.getHtml();
                         updateHistory(html);
+
+                        Log.d("ImageHandling", "Successfully added photo: " + contentUri);
 
                     } catch (Exception e) {
                         Log.e("AddCardActivity", "Error processing camera image: " + e.getMessage(), e);
@@ -169,7 +158,7 @@ public class AddCardActivity extends AppCompatActivity {
                     Log.d("ImageHandling", "User cancelled taking photo");
                 }
             }
-    );
+        );
 
 
     @Override
@@ -354,38 +343,43 @@ public class AddCardActivity extends AppCompatActivity {
 
 
     private void handleImageSelection(Uri uri) {
-        try {
-            // Tạo tên file ảnh dựa trên timestamp để tránh trùng lặp
-            String fileName = "img_" + System.currentTimeMillis() + ".jpg";
-            File destFile = new File(imagesDir, fileName);
+        new Thread(() -> {
+            try {
+                // Tạo tên file ảnh
+                String fileName = "img_" + System.currentTimeMillis() + ".jpg";
+                File destFile = new File(imagesDir, fileName);
 
-            // Sao chép ảnh từ Uri vào bộ nhớ ứng dụng
-            InputStream in = getContentResolver().openInputStream(uri);
-            FileOutputStream out = new FileOutputStream(destFile);
-            byte[] buffer = new byte[1024];
-            int length;
-            while ((length = in.read(buffer)) > 0) {
-                out.write(buffer, 0, length);
+                // Sao chép ảnh từ URI vào thư mục ứng dụng
+                InputStream in = getContentResolver().openInputStream(uri);
+                FileOutputStream out = new FileOutputStream(destFile);
+                byte[] buffer = new byte[1024];
+                int length;
+                while ((length = in.read(buffer)) > 0) {
+                    out.write(buffer, 0, length);
+                }
+                in.close();
+                out.close();
+
+                // Tạo URI content:// từ FileProvider
+                Uri contentUri = FileProvider.getUriForFile(
+                        this,
+                        "com.cntt2.flashcard.fileprovider",
+                        destFile
+                );
+
+                // Chèn ảnh vào editor trên main thread
+                runOnUiThread(() -> {
+                    edtCardContent.insertImage(contentUri.toString(), "Gallery Image");
+                    String html = edtCardContent.getHtml();
+                    updateHistory(html);
+                    Log.d("ImageHandling", "Successfully added gallery image: " + contentUri);
+                });
+
+            } catch (IOException e) {
+                Log.e("AddCardActivity", "Error handling image: " + e.getMessage());
+                runOnUiThread(() -> Toast.makeText(this, "Failed to process image", Toast.LENGTH_SHORT).show());
             }
-            in.close();
-            out.close();
-
-            // Đường dẫn đầy đủ của ảnh mới
-            String fullImagePath = destFile.getAbsolutePath();
-            Log.d("ImageTracking", "Added new image: " + fullImagePath);
-
-            // Tạo URL cho ảnh và thêm vào editor
-            String imagePath = "file://" + fullImagePath;
-            edtCardContent.insertImage(imagePath, "Image " + fileName);
-
-            // Lấy HTML hiện tại và cập nhật lịch sử
-            String html = edtCardContent.getHtml();
-            updateHistory(html);
-
-        } catch (IOException e) {
-            Log.e("AddCardActivity", "Error handling image: " + e.getMessage());
-            Toast.makeText(this, "Failed to process image", Toast.LENGTH_SHORT).show();
-        }
+        }).start();
     }
 
     private void updateHistory(String html) {
@@ -405,6 +399,7 @@ public class AddCardActivity extends AppCompatActivity {
         historyIndex++;
     }
 
+    ////////////
     private Set<String> extractImagePathsFromHtml(String html) {
         Set<String> imagePaths = new HashSet<>();
         if (html == null || html.isEmpty()) {
@@ -417,17 +412,35 @@ public class AddCardActivity extends AppCompatActivity {
 
         while (matcher.find()) {
             String srcPath = matcher.group(1);
+
             // Xử lý đường dẫn file://
             if (srcPath.startsWith("file://")) {
                 srcPath = srcPath.substring(7); // Bỏ "file://"
+            } else if (srcPath.startsWith("content://")) {
+                // Chuyển URI content:// thành đường dẫn file thực tế
+                srcPath = getRealPathFromContentUri(Uri.parse(srcPath));
             }
 
-            // Thêm đường dẫn vào tập hợp
-            imagePaths.add(srcPath);
-            Log.d("ImagePath", "Found image path: " + srcPath);
+            if (srcPath != null) {
+                imagePaths.add(srcPath);
+                Log.d("ImagePath", "Found image path: " + srcPath);
+            }
         }
 
         return imagePaths;
+    }
+
+    // Helper method để chuyển URI content:// thành đường dẫn file thực tế
+    private String getRealPathFromContentUri(Uri contentUri) {
+        try {
+            if ("com.cntt2.flashcard.fileprovider".equals(contentUri.getAuthority())) {
+                File file = new File(getFilesDir(), contentUri.getPath().replace("/my_images/", "images/"));
+                return file.getAbsolutePath();
+            }
+        } catch (Exception e) {
+            Log.e("ImagePath", "Error converting content URI to file path: " + e.getMessage());
+        }
+        return null;
     }
 
     private void manageImageFiles(String combinedHtml) {
@@ -449,17 +462,7 @@ public class AddCardActivity extends AppCompatActivity {
 
             // Duyệt qua danh sách ảnh đã thêm mới trong phiên
             for (String addedImagePath : allImagesAddedInSession) {
-                boolean isUsed = false;
-
-                // Kiểm tra xem ảnh có đang được sử dụng hay không
-                for (String usedImagePath : usedImages) {
-                    if (addedImagePath.equals(usedImagePath) ||
-                            addedImagePath.endsWith(usedImagePath) ||
-                            usedImagePath.contains(new File(addedImagePath).getName())) {
-                        isUsed = true;
-                        break;
-                    }
-                }
+                boolean isUsed = usedImages.contains(addedImagePath);
 
                 // Nếu ảnh không còn được sử dụng, xóa nó
                 if (!isUsed) {
