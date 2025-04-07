@@ -8,11 +8,11 @@
     android:layout_height="match_parent">
 
 
-    <!-- Mặt trước: TextView căn giữa -->
+
 
     <!-- Mặt sau: 4 nút nằm ngang -->
     <androidx.viewpager2.widget.ViewPager2
-        android:id="@+id/viewPagerStudyCard"
+        android:id="@+id/viewPagerShowCard"
         android:layout_width="410dp"
         android:layout_height="603dp"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -24,40 +24,8 @@
 
     </androidx.viewpager2.widget.ViewPager2>
 
-    <TextView
-        android:id="@+id/tvStudyCardCompletedShow"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:padding="24dp"
-        android:text="🎉 Bạn đã hoàn thành tất cả các thẻ!"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <Button
-        android:id="@+id/btnStudyCardCompletedShow"
-        android:layout_width="135dp"
-        android:layout_height="55dp"
-        android:layout_centerInParent="true"
-        android:backgroundTint="#1ca6ff"
-        android:text="Continue"
-        android:textColor="#ffffff"
-        android:textStyle="bold"
-        android:visibility="gone"
-        app:cornerRadius="14dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/linearLayoutStudyCardLayoutOntop"
-        app:layout_constraintVertical_bias="0.835" />
-
     <LinearLayout
-        android:id="@+id/linearLayoutStudyCardFrontLayoutUnder"
+        android:id="@+id/linearLayoutShowCardFrontLayoutUnder"
         android:layout_width="412dp"
         android:layout_height="64dp"
         android:gravity="center"
@@ -72,18 +40,18 @@
         app:layout_constraintVertical_bias="0.992">
 
         <TextView
-            android:id="@+id/tvStudyCardFrontShowAnswer"
+            android:id="@+id/tvShowCardFromFront"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:gravity="center"
-            android:text="Tap to show answer"
+            android:text="Flip"
             android:textColor="#000000"
             android:textSize="18sp"
             android:textStyle="bold" />
     </LinearLayout>
 
     <LinearLayout
-        android:id="@+id/linearLayoutStudyCardBackLayoutUnder"
+        android:id="@+id/linearLayoutShowCardBackLayoutUnder"
         android:layout_width="402dp"
         android:layout_height="78dp"
         android:gravity="center"
@@ -97,61 +65,19 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="1.0">
 
-        <!-- Nút Again với nền đỏ nhạt, chữ trắng -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnStudyCardBackAgain"
-            android:layout_width="0dp"
+        <TextView
+            android:id="@+id/tvShowCardFlipFromBack"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Again"
-            android:textColor="#ff0101"
-            android:backgroundTint="#FFCDD2"
-            android:textStyle="bold"
-            app:cornerRadius="10dp"
-            android:layout_marginEnd="8dp"/>
-
-        <!-- Nút Hard với nền cam nhạt, chữ trắng -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnStudyCardBackHard"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Hard"
-            android:textColor="#fd9002"
-            android:backgroundTint="#FFECB3"
-            android:textStyle="bold"
-            app:cornerRadius="10dp"
-            android:layout_marginEnd="8dp"/>
-
-        <!-- Nút Good với nền xanh lá nhạt, chữ trắng -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnStudyCardBackGood"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Good"
-            android:textColor="#2dba1e"
-            android:backgroundTint="#C8E6C9"
-            android:textStyle="bold"
-            app:cornerRadius="10dp"
-            android:layout_marginEnd="8dp"/>
-
-        <!-- Nút Easy với nền xanh dương nhạt, chữ trắng -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnStudyCardBackEady"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Easy"
-            android:textColor="#0011a7"
-            android:backgroundTint="#BBDEFB"
-            android:textStyle="bold"
-            app:cornerRadius="10dp"
-            android:layout_marginEnd="8dp"/>
+            android:gravity="center"
+            android:text="Flip"
+            android:textColor="#000000"
+            android:textSize="18sp"
+            android:textStyle="bold" />
     </LinearLayout>
 
     <LinearLayout
-        android:id="@+id/linearLayoutStudyCardLayoutOntop"
+        android:id="@+id/linearLayoutShowCardLayoutOntop"
         android:layout_width="409dp"
         android:layout_height="45dp"
         android:orientation="horizontal"
@@ -164,7 +90,7 @@
 
         <!-- Nút "X" bên trái -->
         <ImageButton
-            android:id="@+id/imageButtonStudyCardCancel"
+            android:id="@+id/imageButtonShowCardCancel"
             android:layout_width="40dp"
             android:layout_height="48dp"
             android:layout_marginStart="8dp"
@@ -174,20 +100,20 @@
 
         <!-- TextView ở giữa -->
         <TextView
-            android:id="@+id/tvStudyCardStep"
+            android:id="@+id/tvShowCardStep"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_marginStart="16dp"
             android:layout_marginEnd="16dp"
             android:layout_weight="1"
             android:gravity="center"
-            android:text="Step"
+            android:text="DeckName"
             android:textSize="18sp"
             android:textStyle="bold" />
 
         <!-- Hamburger Menu (3 gạch ngang) bên phải -->
         <ImageButton
-            android:id="@+id/btnHamburgerMenuStudyCardOption"
+            android:id="@+id/btnHamburgerMenuShowCardOption"
             android:layout_width="40dp"
             android:layout_height="48dp"
             android:layout_marginEnd="8dp"
