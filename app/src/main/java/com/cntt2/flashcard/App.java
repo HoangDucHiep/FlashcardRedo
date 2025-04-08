@@ -22,13 +22,16 @@ public class App extends Application {
     public void onCreate() {
         super.onCreate();
         instance = this;
+
+        reviewRepository = new ReviewRepository(this);
+        learningSessionRepository = new LearningSessionRepository(this);
+
         databaseHelper = new DatabaseHelper(this);
         cardRepository = new CardRepository(this);
         deskRepository = new DeskRepository(this);
         folderRepository = new FolderRepository(this);
         
-        reviewRepository = new ReviewRepository(this);
-        learningSessionRepository = new LearningSessionRepository(this);
+
 
         // Seed the database with initial data
         //folderRepository.seedDatabase();

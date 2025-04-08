@@ -19,6 +19,7 @@ public class CardDao {
         dbHelper = new DatabaseHelper(context);
     }
 
+
     public long insertCard(Card card) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();

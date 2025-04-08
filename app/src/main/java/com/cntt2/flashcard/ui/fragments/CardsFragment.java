@@ -15,8 +15,10 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.cntt2.flashcard.App;
 import com.cntt2.flashcard.R;
 import com.cntt2.flashcard.data.repository.CardRepository;
+import com.cntt2.flashcard.data.repository.ReviewRepository;
 import com.cntt2.flashcard.model.Card;
 import com.cntt2.flashcard.ui.activities.AddCardActivity;
 import com.cntt2.flashcard.ui.activities.ListCardActivity;
@@ -37,12 +39,19 @@ public class CardsFragment extends Fragment {
     private RecyclerView recyclerView;
     private FlashcardAdapter adapter;
     private List<Card> cardList = new ArrayList<>();
+
+    private List<Card> cardsToReview = new ArrayList<>();
+    private List<Card> newToLearn = new ArrayList<>();
+
     private EditText edtSearch;
     private TextView txtCount;
+    private TextView toLearn;
+    private TextView toReview;
     private Button btnStartLearnSession;
     private final int MAX_CARDS = 200;
     private int deskId;
-    private CardRepository cardRepository;
+    private CardRepository cardRepository = App.getInstance().getCardRepository();
+    private ReviewRepository reviewRepository = App.getInstance().getReviewRepository();
 
     public CardsFragment(List<Card> cardList) {
         this.cardList = cardList;
@@ -86,7 +95,6 @@ public class CardsFragment extends Fragment {
         if (getArguments() != null) {
             deskId = getArguments().getInt("deskId", -1); // Lấy deskId từ Bundle
         }
-        cardRepository = new CardRepository(requireContext());
     }
 
     @Override
@@ -106,6 +114,15 @@ public class CardsFragment extends Fragment {
         } else {
             cardList = new ArrayList<>(); // Nếu không có deskId, hiển thị danh sách rỗng
         }
+
+        toLearn = view.findViewById(R.id.toLearn);
+        toReview = view.findViewById(R.id.toReview);
+
+        cardsToReview = cardRepository.getCardsToReview(deskId);
+        newToLearn = cardRepository.getNewCards(deskId);
+
+        toLearn.setText(String.valueOf(newToLearn.size()));
+        toReview.setText(String.valueOf(cardsToReview.size()));
 
         adapter = new FlashcardAdapter(cardList);
         recyclerView.setAdapter(adapter);
@@ -167,5 +184,10 @@ public class CardsFragment extends Fragment {
                 cardList = cardRepository.getCardsByDeskId(deskId);
                 adapter.setData(cardList);
                 updateCardCount();
+                cardsToReview = cardRepository.getCardsToReview(deskId);
+                newToLearn = cardRepository.getNewCards(deskId);
+
+        toLearn.setText(String.valueOf(newToLearn.size()));
+        toReview.setText(String.valueOf(cardsToReview.size()));
     }
 }

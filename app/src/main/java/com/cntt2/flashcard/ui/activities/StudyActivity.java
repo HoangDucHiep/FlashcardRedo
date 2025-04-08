@@ -19,12 +19,19 @@ import androidx.viewpager2.widget.ViewPager2;
 import com.cntt2.flashcard.App;
 import com.cntt2.flashcard.R;
 import com.cntt2.flashcard.data.repository.CardRepository;
+import com.cntt2.flashcard.data.repository.LearningSessionRepository;
 import com.cntt2.flashcard.model.Card;
+import com.cntt2.flashcard.model.LearningSession;
 import com.cntt2.flashcard.ui.adapters.ShowStudyCardToLearnAdapter;
 import com.cntt2.flashcard.ui.animation.ZoomOutPageTransformer;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 public class StudyActivity extends AppCompatActivity {
 
@@ -36,8 +43,14 @@ public class StudyActivity extends AppCompatActivity {
     private ShowStudyCardToLearnAdapter cardAdapter;
 
     CardRepository cardRepository = App.getInstance().getCardRepository();
-
+    LearningSessionRepository sessionRepository = App.getInstance().getLearningSessionRepository();
     private int deskId;
+
+    private LearningSession currentSession;
+    private long sessionId = -1; // ID của session sau khi lưu
+    private List<Card> cardList; // Danh sách thẻ để học
+    private Map<Integer, Integer> cardResponses; // Lưu phản hồi của người dùng cho từng thẻ (cardId -> quality)
+    private int correctAnswers = 0; // Số câu trả lời đúng để tính hiệu suất
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,14 +82,21 @@ public class StudyActivity extends AppCompatActivity {
         }
 
         // Tạo danh sách thẻ (sample data)
-        List<Card> cardList = cardRepository.getCardsByDeskId(deskId);
+        cardList = new ArrayList<>();
+        cardList.addAll(cardRepository.getNewCards(deskId));
+        cardList.addAll(cardRepository.getCardsToReview(deskId));
+
+        currentSession = new LearningSession();
+        currentSession.setDeskId(deskId);
+        String currentTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault()).format(new Date());
+        currentSession.setStartTime(currentTime);
+        cardResponses = new HashMap<>();
+
 
         // Tạo adapter và gắn vào ViewPager2
         cardAdapter = new ShowStudyCardToLearnAdapter(cardList);
         viewPagerStudyCard.setAdapter(cardAdapter);
-
         viewPagerStudyCard.setUserInputEnabled(false); // Khóa vuốt ngang
-
 
         // Thêm hiệu ứng hoạt ảnh khi chuyển thẻ (tuỳ chọn)
         viewPagerStudyCard.setPageTransformer(new ZoomOutPageTransformer());
@@ -128,15 +148,14 @@ public class StudyActivity extends AppCompatActivity {
                     // Đảm bảo hiển thị mặt trước và ẩn mặt sau
                     cardHolder.webFront.setVisibility(View.VISIBLE);
                     cardHolder.webBack.setVisibility(View.GONE);
-
-
-
                     cardHolder.webFront.setRotationY(0f);
                     cardHolder.webBack.setRotationY(0f);
                 }
 
             }
         });
+
+
 
         btnAgain.setOnClickListener(v -> {
             // Đặt lại trạng thái thẻ hiện tại
@@ -154,7 +173,6 @@ public class StudyActivity extends AppCompatActivity {
             // Cập nhật lại dữ liệu trong adapter khi mặt trước/sau thay đổi
             cardAdapter.notifyItemChanged(viewPagerStudyCard.getCurrentItem());
         });
-
         btnHard.setOnClickListener(v -> goToNextCard());
         btnGood.setOnClickListener(v -> goToNextCard());
         btnEasy.setOnClickListener(v -> goToNextCard());
