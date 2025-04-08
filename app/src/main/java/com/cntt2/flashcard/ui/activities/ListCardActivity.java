@@ -25,6 +25,7 @@ public class ListCardActivity extends AppCompatActivity {
     private int deskId;
 
     private static final int ADD_CARD_REQUEST_CODE = 100;
+    private static final int EDIT_CARD_REQUEST_CODE = 101;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -105,6 +106,7 @@ public class ListCardActivity extends AppCompatActivity {
 
         btnAdd.setOnClickListener(view -> {
             Intent intent = new Intent(ListCardActivity.this, AddCardActivity.class);
+            intent.putExtra("isEditMode", false);
             intent.putExtra("deskId", deskId);
             startActivityForResult(intent, ADD_CARD_REQUEST_CODE);
         });

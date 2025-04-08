@@ -26,6 +26,10 @@ public class CardRepository {
         cardDao.deleteCard(card.getId());
     }
 
+    public Card getCardById(int cardId) {
+        return cardDao.getCardById(cardId);
+    }
+
     public List<Card> getCardsByDeskId(int deskId) {
         return cardDao.getCardsByDeskId(deskId);
     }

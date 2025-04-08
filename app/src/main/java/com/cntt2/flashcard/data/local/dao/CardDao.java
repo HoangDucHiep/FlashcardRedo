@@ -59,6 +59,24 @@ public class CardDao {
     }
 
     @SuppressLint("Range")
+    public Card getCardById(int cardId) {
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT * FROM cards WHERE id = ?", new String[]{String.valueOf(cardId)});
+        Card card = null;
+        if (cursor.moveToFirst()) {
+            card = new Card();
+            card.setId(cursor.getInt(cursor.getColumnIndex("id")));
+            card.setDeskId(cursor.getInt(cursor.getColumnIndex("desk_id")));
+            card.setFront(cursor.getString(cursor.getColumnIndex("front")));
+            card.setBack(cursor.getString(cursor.getColumnIndex("back")));
+            card.setCreatedAt(cursor.getString(cursor.getColumnIndex("created_at")));
+        }
+        cursor.close();
+        db.close();
+        return card;
+    }
+
+    @SuppressLint("Range")
     public List<Card> getAllCards() {
         List<Card> cards = new ArrayList<>();
         SQLiteDatabase db = dbHelper.getReadableDatabase();

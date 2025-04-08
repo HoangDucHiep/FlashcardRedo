@@ -74,6 +74,11 @@ public class AddCardActivity extends AppCompatActivity {
     private Uri photoUri;
     private File imagesDir;
 
+    // for update
+    private boolean isEditMode = false;
+    private int cardId = -1;
+    private Card existingCard;
+
     private static final int REQUEST_PERMISSIONS = 100;
 
     private void checkPermissions() {
@@ -190,7 +195,26 @@ public class AddCardActivity extends AppCompatActivity {
         photoUri = FileProvider.getUriForFile(this,
                 "com.cntt2.flashcard.fileprovider", photoFile);
 
-        deskId = getIntent().getIntExtra("deskId", -1);
+
+        // Xử lý Intent
+        Intent intent = getIntent();
+        isEditMode = intent.getBooleanExtra("isEditMode", false);
+        if (isEditMode) {
+            cardId = intent.getIntExtra("cardId", -1);
+            if (cardId != -1) {
+                existingCard = cardRepository.getCardById(cardId);
+                if (existingCard != null) {
+                    frontText = existingCard.getFront();
+                    backText = existingCard.getBack();
+                    deskId = existingCard.getDeskId();
+                    edtCardContent.setHtml(frontText);
+                    initialImages = extractImagePathsFromHtml(frontText + backText);
+                }
+            }
+        } else {
+            deskId = intent.getIntExtra("deskId", -1);
+        }
+
 
         updateToggleState();
 
@@ -198,9 +222,16 @@ public class AddCardActivity extends AppCompatActivity {
         edtCardContent.setPlaceholder("Type in front content");
         edtCardContent.setEditorFontColor(Color.WHITE);
         edtCardContent.setPadding(10, 10, 10, 10);
+        String css = "<style>img { max-width: 100%; height: auto; }</style>";
+        edtCardContent.setHtml(css + "");
 
         edtCardContent.setOnTextChangeListener(text -> {
+            Log.println(Log.INFO, "TextChange", text);
+            if (text == null || text.isEmpty()) {
+                edtCardContent.setHtml(css + "");
+            }
             updateHistory(text);
+
         });
 
         setupEditorControls();
@@ -229,7 +260,6 @@ public class AddCardActivity extends AppCompatActivity {
 
         // Back button to return to MainActivity
         btnBack.setOnClickListener(v -> finish());
-
         // Save button to create a new card
         btnSave.setOnClickListener(v -> saveCard());
         
@@ -492,27 +522,33 @@ public class AddCardActivity extends AppCompatActivity {
             return;
         }
 
-
         String currentDate = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault()).format(new Date());
 
-        Card newCard = new Card(frontText, backText, deskId, currentDate);
-
-        long insertedId = cardRepository.insertCard(newCard);
-        if (insertedId != -1) {
-            newCard.setId((int) insertedId);
-            manageImageFiles(frontText + backText);
-            Toast.makeText(this, "Card created successfully", Toast.LENGTH_SHORT).show();
-            setResult(RESULT_OK);
-            finish();
+        if (isEditMode) {
+            // Chế độ chỉnh sửa
+            if (existingCard != null) {
+                existingCard.setFront(frontText);
+                existingCard.setBack(backText);
+                existingCard.setCreatedAt(currentDate); // Cập nhật thời gian (tùy chọn)
+                cardRepository.updateCard(existingCard);
+                manageImageFiles(frontText + backText);
+                Toast.makeText(this, "Card updated successfully", Toast.LENGTH_SHORT).show();
+            }
         } else {
-            Toast.makeText(this, "Failed to create card", Toast.LENGTH_SHORT).show();
+            // Chế độ thêm mới
+            Card newCard = new Card(frontText, backText, deskId, currentDate);
+            long insertedId = cardRepository.insertCard(newCard);
+            if (insertedId != -1) {
+                newCard.setId((int) insertedId);
+                manageImageFiles(frontText + backText);
+                Toast.makeText(this, "Card created successfully", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Failed to create card", Toast.LENGTH_SHORT).show();
+            }
         }
 
-
-
-
-
-
+        setResult(RESULT_OK);
+        finish();
     }
 
 
