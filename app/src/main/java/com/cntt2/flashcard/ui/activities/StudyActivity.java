@@ -39,7 +39,7 @@ import java.util.Map;
 public class StudyActivity extends AppCompatActivity {
 
     private ViewPager2 viewPagerStudyCard;
-    TextView tvShowAnswer, tvStudyCardCompletedShow, tvStudyCardStep;
+    TextView tvShowAnswer, tvStudyCardCompletedShow, tvStudyCardStep, tvRateStudyCardCompletedShow;
     LinearLayout FrontLayoutUnder, BackLayoutUnder;
     Button btnAgain, btnHard, btnGood, btnEasy, btnStudyCardCompletedShow;
     ImageButton  imageButtonStudyCardCancel, btnHamburgerMenuStudyCardOption;
@@ -72,6 +72,7 @@ public class StudyActivity extends AppCompatActivity {
         btnGood = findViewById(R.id.btnStudyCardBackGood);
         btnEasy = findViewById(R.id.btnStudyCardBackEady);
         tvStudyCardCompletedShow= findViewById(R.id.tvStudyCardCompletedShow);
+        tvRateStudyCardCompletedShow= findViewById(R.id.tvRateStudyCardCompletedShow);
         btnStudyCardCompletedShow= findViewById(R.id.btnStudyCardCompletedShow);
         tvStudyCardStep= findViewById(R.id.tvStudyCardStep);
         imageButtonStudyCardCancel= findViewById(R.id.imageButtonStudyCardCancel);
@@ -252,6 +253,9 @@ public class StudyActivity extends AppCompatActivity {
         imageButtonStudyCardCancel.setVisibility(View.GONE);
         tvStudyCardCompletedShow.setVisibility(View.VISIBLE);
         btnStudyCardCompletedShow.setVisibility(View.VISIBLE);
+        String performanceText = correctAnswers + "/" + cardResponses.size() + " (" + String.format(Locale.getDefault(), "%.2f", currentSession.getPerformance() * 100) + "%)";
+        tvRateStudyCardCompletedShow.setText(performanceText);
+        tvRateStudyCardCompletedShow.setVisibility(View.VISIBLE);
     }
 
     private void cancelSession() {
