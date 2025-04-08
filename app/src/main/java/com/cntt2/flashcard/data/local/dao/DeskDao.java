@@ -59,6 +59,25 @@ public class DeskDao {
     }
 
     @SuppressLint("Range")
+    public Desk getDeskById(int id) {
+        Desk desk = null;
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT * FROM desks WHERE id = ?", new String[]{String.valueOf(id)});
+        if (cursor.moveToFirst()) {
+            desk = new Desk();
+            desk.setId(cursor.getInt(cursor.getColumnIndex("id")));
+            desk.setFolderId(cursor.getInt(cursor.getColumnIndex("folder_id")));
+            desk.setName(cursor.getString(cursor.getColumnIndex("name")));
+            desk.setCreatedAt(cursor.getString(cursor.getColumnIndex("created_at")));
+            desk.setPublic(cursor.getInt(cursor.getColumnIndex("is_public")) == 1);
+            desk.setCards(cardDao.getCardsByDeskId(desk.getId()));
+        }
+        cursor.close();
+        db.close();
+        return desk;
+    }
+
+    @SuppressLint("Range")
     public List<Desk> getDesksByFolderId(int folderId) {
         List<Desk> desks = new ArrayList<>();
         SQLiteDatabase db = dbHelper.getReadableDatabase();

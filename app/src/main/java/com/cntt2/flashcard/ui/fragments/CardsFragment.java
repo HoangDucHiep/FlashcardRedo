@@ -5,9 +5,11 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.PopupMenu;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -16,17 +18,21 @@ import androidx.fragment.app.Fragment;
 import com.cntt2.flashcard.App;
 import com.cntt2.flashcard.R;
 import com.cntt2.flashcard.data.repository.CardRepository;
+import com.cntt2.flashcard.data.repository.DeskRepository;
 import com.cntt2.flashcard.data.repository.ReviewRepository;
 import com.cntt2.flashcard.model.Card;
+import com.cntt2.flashcard.model.Desk;
 import com.cntt2.flashcard.ui.activities.AddCardActivity;
 import com.cntt2.flashcard.ui.activities.StudyActivity;
 import com.cntt2.flashcard.ui.adapters.FlashcardAdapter;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLongClickListener {
     private static final int REQUEST_START_A_LEARNING_SESSION = 301;
@@ -47,6 +53,8 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
     private int deskId;
     private CardRepository cardRepository = App.getInstance().getCardRepository();
     private ReviewRepository reviewRepository = App.getInstance().getReviewRepository();
+
+    private DeskRepository deskRepository = App.getInstance().getDeskRepository();
 
     public CardsFragment() {
         // Required empty public constructor
@@ -168,8 +176,58 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
     }
 
     private void moveCard(Card card) {
-        // TODO: Thêm logic để di chuyển card sang desk khác
-        Toast.makeText(getContext(), "Chức năng Move to Desk chưa được triển khai", Toast.LENGTH_SHORT).show();
+        showChangeDeskDialog(card);
+    }
+
+    private void showChangeDeskDialog(Card card) {
+        View view = LayoutInflater.from(getContext()).inflate(R.layout.card_change_desk, null);
+        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
+        dialog.setContentView(view);
+
+        Spinner deskSpinner = view.findViewById(R.id.destDeskSpinner);
+        List<Map<Integer, String>> deskNames = new ArrayList<>();
+
+        var desks = deskRepository.getAllDesks();
+
+        for (Desk desk : desks) {
+            deskNames.add(Map.of(desk.getId(), desk.getName()));
+        }
+
+        String currentDesk = deskRepository.getDeskById(card.getDeskId()).getName();
+
+        deskNames.remove(Map.of(card.getDeskId(), currentDesk));
+        deskNames.add(0, Map.of(card.getDeskId(), currentDesk));
+
+        // take values from map
+        List<String> deskNameList = new ArrayList<>();
+        for (Map<Integer, String> desk : deskNames) {
+            for (String name : desk.values()) {
+                deskNameList.add(name);
+            }
+        }
+
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, deskNameList);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        deskSpinner.setAdapter(adapter);
+
+        view.findViewById(R.id.btnCardChangeDeskSave).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                int selectedPosition = deskSpinner.getSelectedItemPosition();
+                // get key from map at selectedPosition
+                int selectedDeskId = (int) deskNames.get(selectedPosition).keySet().toArray()[0];
+
+                card.setDeskId(selectedDeskId);
+
+                cardRepository.updateCard(card);
+
+                updateCardList();
+                dialog.dismiss();
+
+            }
+        });
+
+        dialog.show();
     }
 
     private void deleteCard(Card card, int position) {
@@ -202,7 +260,7 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
         toReview.setText(String.valueOf(cardsToReview.size()));
     }
 
-    public void addNewCard() {
+    public void updateCardList() {
         cardList = cardRepository.getCardsByDeskId(deskId);
         adapter.setData(cardList);
         updateCardCount();

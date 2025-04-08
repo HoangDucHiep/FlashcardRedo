@@ -18,18 +18,18 @@ public class ImageManager {
             return imagePaths;
         }
 
-        // Tìm tất cả các thẻ img và trích xuất thuộc tính src
+        // find all image src paths in the HTML
         Pattern pattern = Pattern.compile("<img[^>]+src=[\"']([^\"']+)[\"'][^>]*>");
         Matcher matcher = pattern.matcher(html);
 
         while (matcher.find()) {
             String srcPath = matcher.group(1);
 
-            // Xử lý đường dẫn file://
+            // process path file://
             if (srcPath.startsWith("file://")) {
-                srcPath = srcPath.substring(7); // Bỏ "file://"
+                srcPath = srcPath.substring(7); // Remove "file://"
             } else if (srcPath.startsWith("content://")) {
-                // Chuyển URI content:// thành đường dẫn file thực tế
+                // Convert content URI to file path
                 srcPath = getRealPathFromContentUri(Uri.parse(srcPath), context);
             }
 
@@ -56,7 +56,6 @@ public class ImageManager {
 
     public static void deleteImageFiles(Set<String> images, Context context) {
         try {
-            // Duyệt qua danh sách ảnh đã thêm mới trong phiên
             for (String addedImagePath : images) {
                 File fileToDelete = new File(addedImagePath);
                 boolean deleted = fileToDelete.delete();

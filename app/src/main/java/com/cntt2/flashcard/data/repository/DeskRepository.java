@@ -43,6 +43,10 @@ public class DeskRepository {
         deskDao.deleteDesk(desk.getId());
     }
 
+    public Desk getDeskById(int deskId) {
+        return deskDao.getDeskById(deskId);
+    }
+
     public List<Desk> getDesksByFolderId(int folderId) {
         return deskDao.getDesksByFolderId(folderId);
     }
