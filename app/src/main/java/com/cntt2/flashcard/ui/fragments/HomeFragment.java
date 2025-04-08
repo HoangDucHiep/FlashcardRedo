@@ -79,7 +79,6 @@ public class HomeFragment extends Fragment {
                 intent.putExtra("deskId", selectedDesk.getId());
                 startActivity(intent);
             }
-
         });
 
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {

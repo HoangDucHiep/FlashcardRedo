@@ -7,13 +7,11 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
-import androidx.recyclerview.widget.GridLayoutManager;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.cntt2.flashcard.App;
 import com.cntt2.flashcard.R;
@@ -21,27 +19,22 @@ import com.cntt2.flashcard.data.repository.CardRepository;
 import com.cntt2.flashcard.data.repository.ReviewRepository;
 import com.cntt2.flashcard.model.Card;
 import com.cntt2.flashcard.ui.activities.AddCardActivity;
-import com.cntt2.flashcard.ui.activities.ListCardActivity;
 import com.cntt2.flashcard.ui.activities.StudyActivity;
 import com.cntt2.flashcard.ui.adapters.FlashcardAdapter;
+
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
 import java.util.List;
 
-
-/**
- * A simple {@link Fragment} subclass.
- * Use the {@link CardsFragment#newInstance} factory method to
- * create an instance of this fragment.
- */
-public class CardsFragment extends Fragment {
+public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLongClickListener {
     private static final int REQUEST_START_A_LEARNING_SESSION = 301;
-
+    private static final int REQUEST_EDIT_CARD = 302;
 
     private RecyclerView recyclerView;
     private FlashcardAdapter adapter;
     private List<Card> cardList = new ArrayList<>();
-
     private List<Card> cardsToReview = new ArrayList<>();
     private List<Card> newToLearn = new ArrayList<>();
 
@@ -55,38 +48,19 @@ public class CardsFragment extends Fragment {
     private CardRepository cardRepository = App.getInstance().getCardRepository();
     private ReviewRepository reviewRepository = App.getInstance().getReviewRepository();
 
-    public CardsFragment(List<Card> cardList) {
-        this.cardList = cardList;
-    }
-
-
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
-
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
-
     public CardsFragment() {
         // Required empty public constructor
     }
 
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment CardsFragment.
-     */
-    // TODO: Rename and change types and number of parameters
+    public CardsFragment(List<Card> cardList) {
+        this.cardList = cardList;
+    }
+
     public static CardsFragment newInstance(String param1, String param2) {
         CardsFragment fragment = new CardsFragment();
         Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
+        args.putString("param1", param1);
+        args.putString("param2", param2);
         fragment.setArguments(args);
         return fragment;
     }
@@ -95,13 +69,12 @@ public class CardsFragment extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
-            deskId = getArguments().getInt("deskId", -1); // Lấy deskId từ Bundle
+            deskId = getArguments().getInt("deskId", -1);
         }
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_cards, container, false);
 
         recyclerView = view.findViewById(R.id.recyclerView);
@@ -110,55 +83,44 @@ public class CardsFragment extends Fragment {
         edtSearch = view.findViewById(R.id.edtSearch);
         txtCount = view.findViewById(R.id.txtCount);
         btnStartLearnSession = view.findViewById(R.id.btnStartLearnSession);
+        toLearn = view.findViewById(R.id.toLearn);
+        toReview = view.findViewById(R.id.toReview);
 
         if (deskId != -1) {
             cardList = cardRepository.getCardsByDeskId(deskId);
         } else {
-            cardList = new ArrayList<>(); // Nếu không có deskId, hiển thị danh sách rỗng
+            cardList = new ArrayList<>();
         }
-
-        toLearn = view.findViewById(R.id.toLearn);
-        toReview = view.findViewById(R.id.toReview);
 
         cardsToReview = cardRepository.getCardsToReview(deskId);
         newToLearn = cardRepository.getNewCards(deskId);
-
         toLearn.setText(String.valueOf(newToLearn.size()));
         toReview.setText(String.valueOf(cardsToReview.size()));
 
-        adapter = new FlashcardAdapter(cardList);
+        adapter = new FlashcardAdapter(cardList, this); // Truyền this làm listener
         recyclerView.setAdapter(adapter);
-        adapter.notifyDataSetChanged();
         updateCardCount();
-        // Handle search functionality
+
         edtSearch.addTextChangedListener(new android.text.TextWatcher() {
             @Override
-            public void beforeTextChanged(CharSequence charSequence, int start, int count, int after) {}
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 
             @Override
-            public void onTextChanged(CharSequence charSequence, int start, int before, int count) {
-                //filterCards(charSequence.toString());
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                // filterCards(s.toString());
             }
 
             @Override
-            public void afterTextChanged(android.text.Editable editable) {}
+            public void afterTextChanged(android.text.Editable s) {}
         });
 
-        btnStartLearnSession.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (cardList.size() > 0) {
-                    // call StudyActivity
-                    Intent intent = new Intent(getContext(), StudyActivity.class);
-                    intent.putExtra("deskId", deskId);
-
-                    // Chuyển đến StudyActivity
-                    startActivityForResult(intent, REQUEST_START_A_LEARNING_SESSION);
-
-                } else {
-                    // Hiển thị thông báo nếu không có thẻ nào
-                    Toast.makeText(getContext(), "Không có thẻ nào để học!", Toast.LENGTH_SHORT).show();
-                }
+        btnStartLearnSession.setOnClickListener(v -> {
+            if (cardList.size() > 0) {
+                Intent intent = new Intent(getContext(), StudyActivity.class);
+                intent.putExtra("deskId", deskId);
+                startActivityForResult(intent, REQUEST_START_A_LEARNING_SESSION);
+            } else {
+                Toast.makeText(getContext(), "Không có thẻ nào để học!", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -168,9 +130,55 @@ public class CardsFragment extends Fragment {
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_START_A_LEARNING_SESSION && resultCode == getActivity().RESULT_OK) {
+        if ((requestCode == REQUEST_START_A_LEARNING_SESSION || requestCode == REQUEST_EDIT_CARD)
+                && resultCode == getActivity().RESULT_OK) {
             updateToLearnAndToReview();
+            cardList = cardRepository.getCardsByDeskId(deskId);
+            adapter.setData(cardList);
+            updateCardCount();
         }
+    }
+
+    @Override
+    public void onCardLongClick(Card card, int position) {
+        PopupMenu popup = new PopupMenu(getContext(), recyclerView.getChildAt(position));
+        popup.getMenuInflater().inflate(R.menu.card_popup_menu, popup.getMenu());
+        popup.setOnMenuItemClickListener(item -> {
+            int itemId = item.getItemId();
+            if (itemId == R.id.mnuEditCard) {
+                editCard(card);
+                return true;
+            } else if (itemId == R.id.mnuMoveCard) {
+                moveCard(card);
+                return true;
+            } else if (itemId == R.id.mnuDeleteCard) {
+                deleteCard(card, position);
+                return true;
+            }
+            return false;
+        });
+        popup.show();
+    }
+
+    private void editCard(Card card) {
+        Intent intent = new Intent(getContext(), AddCardActivity.class);
+        intent.putExtra("isEditMode", true);
+        intent.putExtra("cardId", card.getId());
+        startActivityForResult(intent, REQUEST_EDIT_CARD);
+    }
+
+    private void moveCard(Card card) {
+        // TODO: Thêm logic để di chuyển card sang desk khác
+        Toast.makeText(getContext(), "Chức năng Move to Desk chưa được triển khai", Toast.LENGTH_SHORT).show();
+    }
+
+    private void deleteCard(Card card, int position) {
+        cardRepository.deleteCard(card);
+        cardList.remove(position);
+        adapter.notifyItemRemoved(position);
+        updateCardCount();
+        updateToLearnAndToReview();
+        Toast.makeText(getContext(), "Đã xóa thẻ", Toast.LENGTH_SHORT).show();
     }
 
     private void updateCardCount() {
@@ -184,7 +192,7 @@ public class CardsFragment extends Fragment {
                 filtered.add(card);
             }
         }
-        adapter.setData(filtered); //
+        adapter.setData(filtered);
     }
 
     private void updateToLearnAndToReview() {
@@ -194,13 +202,10 @@ public class CardsFragment extends Fragment {
         toReview.setText(String.valueOf(cardsToReview.size()));
     }
 
-
-
     public void addNewCard() {
         cardList = cardRepository.getCardsByDeskId(deskId);
         adapter.setData(cardList);
         updateCardCount();
         updateToLearnAndToReview();
-
     }
 }

@@ -223,7 +223,8 @@ public class AddCardActivity extends AppCompatActivity {
         edtCardContent.setEditorFontColor(Color.WHITE);
         edtCardContent.setPadding(10, 10, 10, 10);
         String css = "<style>img { max-width: 100%; height: auto; }</style>";
-        edtCardContent.setHtml(css + "");
+        String initHtml = edtCardContent.getHtml() == null ? "" : edtCardContent.getHtml();
+        edtCardContent.setHtml(css + initHtml);
 
         edtCardContent.setOnTextChangeListener(text -> {
             Log.println(Log.INFO, "TextChange", text);
