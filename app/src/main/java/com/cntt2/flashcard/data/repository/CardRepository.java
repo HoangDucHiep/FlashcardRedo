@@ -7,6 +7,7 @@ import com.cntt2.flashcard.data.local.dao.CardDao;
 import com.cntt2.flashcard.data.local.dao.ReviewDao;
 import com.cntt2.flashcard.model.Card;
 import com.cntt2.flashcard.model.Review;
+import com.cntt2.flashcard.utils.ImageManager;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -15,8 +16,10 @@ import java.util.List;
 public class CardRepository {
     private CardDao cardDao;
     private ReviewRepository reviewRepository = App.getInstance().getReviewRepository();
+    private Context context;
 
     public CardRepository(Context context) {
+        this.context = context;
         cardDao = new CardDao(context);
     }
 
@@ -39,9 +42,17 @@ public class CardRepository {
         cardDao.updateCard(card);
     }
 
-    public void deleteCard(Card card) {
-        cardDao.deleteCard(card.getId());
-        reviewRepository.deleteReviewByCardId(card.getId());
+    public int deleteCard(Card card) {
+        String frontAndBackHtml = card.getFront() + card.getBack();
+        int res = cardDao.deleteCard(card.getId());
+
+        if (res > 0) {
+            reviewRepository.deleteReviewByCardId(card.getId());
+            // deletes images
+            var images = ImageManager.extractImagePathsFromHtml(frontAndBackHtml, context);
+            ImageManager.deleteImageFiles(images, context);
+        }
+        return res;
     }
 
     public Card getCardById(int cardId) {

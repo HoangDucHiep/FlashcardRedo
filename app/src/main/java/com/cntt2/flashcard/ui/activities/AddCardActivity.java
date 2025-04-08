@@ -48,6 +48,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import jp.wasabeef.richeditor.RichEditor;
 
@@ -208,7 +209,7 @@ public class AddCardActivity extends AppCompatActivity {
                     backText = existingCard.getBack();
                     deskId = existingCard.getDeskId();
                     edtCardContent.setHtml(frontText);
-                    initialImages = extractImagePathsFromHtml(frontText + backText);
+                    initialImages = ImageManager.extractImagePathsFromHtml(frontText + backText, this);
                 }
             }
         } else {
@@ -424,60 +425,17 @@ public class AddCardActivity extends AppCompatActivity {
 
         htmlHistory.add(html);
 
-        Set<String> currentImages = extractImagePathsFromHtml(html);
+        Set<String> currentImages = ImageManager.extractImagePathsFromHtml(html, this);
         imageHistory.add(currentImages);
 
         historyIndex++;
     }
 
-    ////////////
-    private Set<String> extractImagePathsFromHtml(String html) {
-        Set<String> imagePaths = new HashSet<>();
-        if (html == null || html.isEmpty()) {
-            return imagePaths;
-        }
-
-        // Tìm tất cả các thẻ img và trích xuất thuộc tính src
-        Pattern pattern = Pattern.compile("<img[^>]+src=[\"']([^\"']+)[\"'][^>]*>");
-        Matcher matcher = pattern.matcher(html);
-
-        while (matcher.find()) {
-            String srcPath = matcher.group(1);
-
-            // Xử lý đường dẫn file://
-            if (srcPath.startsWith("file://")) {
-                srcPath = srcPath.substring(7); // Bỏ "file://"
-            } else if (srcPath.startsWith("content://")) {
-                // Chuyển URI content:// thành đường dẫn file thực tế
-                srcPath = getRealPathFromContentUri(Uri.parse(srcPath));
-            }
-
-            if (srcPath != null) {
-                imagePaths.add(srcPath);
-                Log.d("ImagePath", "Found image path: " + srcPath);
-            }
-        }
-
-        return imagePaths;
-    }
-
-    // Helper method để chuyển URI content:// thành đường dẫn file thực tế
-    private String getRealPathFromContentUri(Uri contentUri) {
-        try {
-            if ("com.cntt2.flashcard.fileprovider".equals(contentUri.getAuthority())) {
-                File file = new File(getFilesDir(), contentUri.getPath().replace("/my_images/", "images/"));
-                return file.getAbsolutePath();
-            }
-        } catch (Exception e) {
-            Log.e("ImagePath", "Error converting content URI to file path: " + e.getMessage());
-        }
-        return null;
-    }
 
     private void manageImageFiles(String combinedHtml) {
         try {
             // Lấy tất cả các đường dẫn ảnh hiện đang được sử dụng trong HTML
-            Set<String> usedImages = extractImagePathsFromHtml(combinedHtml);
+            Set<String> usedImages = ImageManager.extractImagePathsFromHtml(combinedHtml, this);
             Log.d("ImageCleanup", "Found " + usedImages.size() + " images in use");
 
             // Tìm tất cả ảnh đã thêm mới trong phiên làm việc này
@@ -491,18 +449,12 @@ public class AddCardActivity extends AppCompatActivity {
             // Loại bỏ các ảnh đã có từ ban đầu
             allImagesAddedInSession.removeAll(initialImages);
 
-            // Duyệt qua danh sách ảnh đã thêm mới trong phiên
-            for (String addedImagePath : allImagesAddedInSession) {
-                boolean isUsed = usedImages.contains(addedImagePath);
+            // Xóa các ảnh không còn được sử dụng
+            Set<String> unusedImages = allImagesAddedInSession.stream().filter(
+                    imagePath -> !usedImages.contains(imagePath)
+            ).collect(Collectors.toSet());
 
-                // Nếu ảnh không còn được sử dụng, xóa nó
-                if (!isUsed) {
-                    File fileToDelete = new File(addedImagePath);
-                    boolean deleted = fileToDelete.delete();
-                    Log.d("ImageCleanup", "Deleted unused image: " +
-                            fileToDelete.getName() + ", success: " + deleted);
-                }
-            }
+            ImageManager.deleteImageFiles(unusedImages, this);
 
         } catch (Exception e) {
             Log.e("ImageCleanup", "Error cleaning up images: " + e.getMessage(), e);

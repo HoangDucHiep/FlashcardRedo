@@ -32,10 +32,11 @@ public class CardDao {
         return id;
     }
 
-    public void deleteCard(int cardId) {
+    public int deleteCard(int cardId) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
-        db.delete("cards", "id = ?", new String[]{String.valueOf(cardId)});
+        int res = db.delete("cards", "id = ?", new String[]{String.valueOf(cardId)});
         db.close();
+        return res;
     }
 
     @SuppressLint("Range")

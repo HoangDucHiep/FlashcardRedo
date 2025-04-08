@@ -54,7 +54,7 @@ public class ImageManager {
         return null;
     }
 
-    private void deleteImageFiles(Set<String> images, Context context) {
+    public static void deleteImageFiles(Set<String> images, Context context) {
         try {
             // Duyệt qua danh sách ảnh đã thêm mới trong phiên
             for (String addedImagePath : images) {
