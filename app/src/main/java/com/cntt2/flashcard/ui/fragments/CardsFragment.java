@@ -115,7 +115,7 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                // filterCards(s.toString());
+                filterCards(s.toString());
             }
 
             @Override
@@ -246,7 +246,8 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
     private void filterCards(String keyword) {
         List<Card> filtered = new ArrayList<>();
         for (Card card : cardList) {
-            if (card.getFront().toLowerCase().contains(keyword.toLowerCase())) {
+            if (card.getFront().toLowerCase().contains(keyword.toLowerCase())
+                    || card.getFront().toLowerCase().contains(keyword.toLowerCase())) {
                 filtered.add(card);
             }
         }
