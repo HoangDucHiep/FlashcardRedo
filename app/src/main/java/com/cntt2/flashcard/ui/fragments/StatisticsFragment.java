@@ -8,7 +8,6 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Spinner;
-import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
 
@@ -159,7 +158,6 @@ public class StatisticsFragment extends Fragment {
         List<LearningSession> sessions = sessionRepository.getSessionsByDeskId(deskId);
         if (sessions.isEmpty()) {
             lineChart.clear();
-            Toast.makeText(getContext(), "No sessions available", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -240,6 +238,5 @@ public class StatisticsFragment extends Fragment {
     private void clearRecords() {
         //sessionRepository.deleteAllSessionsByDeskId(deskId);
         loadChartData();
-        Toast.makeText(getContext(), "Records cleared", Toast.LENGTH_SHORT).show();
     }
 }

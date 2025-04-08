@@ -101,7 +101,8 @@ public class FlashcardAdapter extends RecyclerView.Adapter<FlashcardAdapter.Card
 
     // Tải nội dung HTML vào WebView
     private void loadCardContent(WebView webView, String content) {
-        String html = "<html><body style='color:white;'>" + (content != null ? content : "") + "</body></html>";
+        String cleanedContent = removeAllImageContent(content);
+        String html = "<html><body style='color:white;'>" + (cleanedContent != null ? cleanedContent : "") + "</body></html>";
         String baseUrl = "content://com.cntt2.flashcard.fileprovider/images/"; // Đảm bảo ảnh tải đúng
         webView.loadDataWithBaseURL(baseUrl, html, "text/html", "UTF-8", null);
     }

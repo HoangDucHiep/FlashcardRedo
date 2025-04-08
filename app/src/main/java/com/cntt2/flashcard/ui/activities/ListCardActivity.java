@@ -19,7 +19,6 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 public class ListCardActivity extends AppCompatActivity {
 
     private FloatingActionButton btnAdd;
-    private Button btnLearn;
     private Button btnCard;
     private Button btnThongKe;
     private Button btnBack;
@@ -35,7 +34,6 @@ public class ListCardActivity extends AppCompatActivity {
         setContentView(R.layout.activity_list_card);
 
         btnAdd = findViewById(R.id.btnAdd);
-        btnLearn = findViewById(R.id.btnLearn);
         btnCard = findViewById(R.id.btnCard);
         btnThongKe = findViewById(R.id.btnThongKe);
         btnBack = findViewById(R.id.btnBack);
@@ -47,22 +45,6 @@ public class ListCardActivity extends AppCompatActivity {
             finish();
             return;
         }
-
-
-        btnLearn.setOnClickListener(view -> {
-            resetButtonBackground();
-            btnLearn.setBackgroundResource(R.drawable.toggle_button_background);
-
-            LearnFragment learnFragment = new LearnFragment();
-            Bundle bundle = new Bundle();
-            bundle.putInt("deskId", deskId);
-            learnFragment.setArguments(bundle);
-
-            // Show LearnModeFragment
-            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-            transaction.replace(R.id.fragmentContainer, learnFragment);
-            transaction.commit();
-        });
 
         btnCard.setOnClickListener(view -> {
             resetButtonBackground();
@@ -115,7 +97,6 @@ public class ListCardActivity extends AppCompatActivity {
     }
 
     private void resetButtonBackground() {
-        btnLearn.setBackgroundResource(R.drawable.toggle_background);
         btnCard.setBackgroundResource(R.drawable.toggle_background);
         btnThongKe.setBackgroundResource(R.drawable.toggle_background);
     }

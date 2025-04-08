@@ -25,6 +25,7 @@ import com.cntt2.flashcard.model.Desk;
 import com.cntt2.flashcard.ui.activities.AddCardActivity;
 import com.cntt2.flashcard.ui.activities.StudyActivity;
 import com.cntt2.flashcard.ui.adapters.FlashcardAdapter;
+import com.cntt2.flashcard.utils.ConfirmDialog;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -160,7 +161,11 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
                 moveCard(card);
                 return true;
             } else if (itemId == R.id.mnuDeleteCard) {
-                deleteCard(card, position);
+                ConfirmDialog.createConfirmDialog(this, getContext(), "Delete card", "Are you sure you want to delete this card", view -> {
+                    deleteCard(card, position);
+                }, view -> {
+                    // Do nothing
+                }).show();
                 return true;
             }
             return false;

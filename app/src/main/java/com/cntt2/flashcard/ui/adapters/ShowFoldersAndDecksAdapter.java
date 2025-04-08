@@ -7,6 +7,7 @@ import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.cntt2.flashcard.R;
 import com.cntt2.flashcard.model.Desk;
@@ -147,6 +148,10 @@ public class ShowFoldersAndDecksAdapter extends BaseAdapter {
                 updateFlattenedList();
                 notifyDataSetChanged();
             }
+        });
+
+        view.setOnLongClickListener(v ->{
+            return false;
         });
 
         return view;

@@ -67,18 +67,6 @@
             android:textSize="14sp" />
 
         <Button
-            android:id="@+id/btnLearn"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Học"
-            android:textColor="@android:color/white"
-            app:backgroundTint="@null"
-            android:background="@android:color/transparent"
-            android:padding="8dp"
-            android:textSize="14sp" />
-
-        <Button
             android:id="@+id/btnThongKe"
             android:layout_width="0dp"
             android:layout_height="wrap_content"

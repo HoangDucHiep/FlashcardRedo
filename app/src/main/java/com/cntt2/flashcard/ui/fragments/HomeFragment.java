@@ -1,5 +1,6 @@
 package com.cntt2.flashcard.ui.fragments;
 
+import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Intent;
 import android.os.Build;
@@ -9,11 +10,13 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.PopupMenu;
 import android.widget.SearchView;
 import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
@@ -26,6 +29,7 @@ import com.cntt2.flashcard.model.Desk;
 import com.cntt2.flashcard.model.Folder;
 import com.cntt2.flashcard.ui.activities.ListCardActivity;
 import com.cntt2.flashcard.ui.adapters.ShowFoldersAndDecksAdapter;
+import com.cntt2.flashcard.utils.ConfirmDialog;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
@@ -119,16 +123,17 @@ public class HomeFragment extends Fragment {
                     editFolder((Folder) selectedItem);
                     return true;
                 } else if (item.getItemId() == R.id.folder_action_delete) {
-                    // Dialog xác nhận xóa
-                    new android.app.AlertDialog.Builder(requireContext())
-                            .setTitle("Delete Folder")
-                            .setMessage("Are you sure you want to delete this folder?")
-                            .setPositiveButton("Yes", (dialog, which) -> {
+                    AlertDialog dialog = ConfirmDialog.createConfirmDialog(
+                            this,
+                            requireContext(),
+                            "Delete Folder",
+                            "Are you sure you want to delete this folder?",
+                            v -> {
                                 deleteFolder((Folder) selectedItem);
-                            })
-                            .setNegativeButton("No", null)
-                            .show();
-
+                            },
+                            v -> {}
+                    );
+                    dialog.show();
                     return true;
                 }
             } else if (selectedItem instanceof Desk) {
@@ -140,15 +145,17 @@ public class HomeFragment extends Fragment {
                     handlePublicDesk((Desk) selectedItem);
                     return true;
                 } else if (item.getItemId() == R.id.desk_action_delete) {
-                    // Dialog xác nhận xóa
-                    new android.app.AlertDialog.Builder(requireContext())
-                            .setTitle("Delete Desk")
-                            .setMessage("Are you sure you want to delete this desk?")
-                            .setPositiveButton("Yes", (dialog, which) -> {
+                    AlertDialog dialog = ConfirmDialog.createConfirmDialog(
+                            this,
+                            requireContext(),
+                            "Delete Desk",
+                            "Are you sure you want to delete this desk?",
+                            v -> {
                                 deleteDesk((Desk) selectedItem);
-                            })
-                            .setNegativeButton("No", null)
-                            .show();
+                            },
+                            v -> {}
+                    );
+                    dialog.show();
                     return true;
                 }
             }

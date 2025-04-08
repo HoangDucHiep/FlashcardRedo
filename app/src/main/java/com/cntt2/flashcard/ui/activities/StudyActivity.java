@@ -12,6 +12,7 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
@@ -209,7 +210,7 @@ public class StudyActivity extends AppCompatActivity {
         int currentPosition = viewPagerStudyCard.getCurrentItem();
         Card currentCard = cardList.get(currentPosition);
         cardResponses.put(currentCard.getId(), quality);
-        if (quality >= 2) { // Good hoặc Easy được coi là đúng
+        if (quality >= 2) { // Good or Easy is considered correct
             correctAnswers++;
         }
     }
@@ -259,8 +260,32 @@ public class StudyActivity extends AppCompatActivity {
     }
 
     private void cancelSession() {
-        // Không lưu session hoặc cập nhật review
-        finish();
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_confirm_cancel, null);
+        builder.setView(dialogView);
+
+        // Ánh xạ các thành phần trong dialog
+        Button btnYes = dialogView.findViewById(R.id.btn_dialog_yes);
+        Button btnNo = dialogView.findViewById(R.id.btn_dialog_no);
+
+        // Tạo dialog
+        AlertDialog dialog = builder.create();
+
+        // Đặt background trong suốt để hiển thị bo góc
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
+
+        // Xử lý sự kiện cho nút Yes
+        btnYes.setOnClickListener(v -> {
+            dialog.dismiss();
+            finish(); // Thoát activity nếu người dùng xác nhận
+        });
+
+        // Xử lý sự kiện cho nút No
+        btnNo.setOnClickListener(v -> dialog.dismiss());
+
+        dialog.show();
     }
 
     private void updateReviewAfterStudy(Review review, int quality) {
