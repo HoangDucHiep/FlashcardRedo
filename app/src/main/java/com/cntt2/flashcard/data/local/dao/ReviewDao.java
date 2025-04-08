@@ -143,4 +143,11 @@ public class ReviewDao {
         db.close();
         return cards;
     }
+
+    public int deleteReviewByCardId(int cardId) {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        int deletedRows = db.delete("reviews", "card_id = ?", new String[]{String.valueOf(cardId)});
+        db.close();
+        return deletedRows;
+    }
 }

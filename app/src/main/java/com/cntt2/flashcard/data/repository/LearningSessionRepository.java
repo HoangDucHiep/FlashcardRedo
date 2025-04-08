@@ -21,4 +21,8 @@ public class LearningSessionRepository {
     public List<LearningSession> getSessionsByDeskId(int deskId) {
         return sessionDao.getSessionsByDeskId(deskId);
     }
+
+    public int deleteSession(int sessionId) {
+        return sessionDao.deleteSession(sessionId);
+    }
 }

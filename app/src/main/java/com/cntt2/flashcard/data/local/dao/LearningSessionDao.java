@@ -53,4 +53,11 @@ public class LearningSessionDao {
         db.close();
         return sessions;
     }
+
+    public int deleteSession(int sessionId) {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        int rowsAffected = db.delete("learning_sessions", "id = ?", new String[]{String.valueOf(sessionId)});
+        db.close();
+        return rowsAffected;
+    }
 }

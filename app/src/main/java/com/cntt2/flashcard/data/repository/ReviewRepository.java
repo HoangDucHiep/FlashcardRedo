@@ -38,4 +38,8 @@ public class ReviewRepository {
     public List<Review> getReviewsDueToday(int deskId, String today) {
         return reviewDao.getReviewsDueToday(deskId, today);
     }
+
+    public int deleteReviewByCardId(int cardId) {
+        return reviewDao.deleteReviewByCardId(cardId);
+    }
 }

@@ -41,6 +41,7 @@ public class CardRepository {
 
     public void deleteCard(Card card) {
         cardDao.deleteCard(card.getId());
+        reviewRepository.deleteReviewByCardId(card.getId());
     }
 
     public Card getCardById(int cardId) {

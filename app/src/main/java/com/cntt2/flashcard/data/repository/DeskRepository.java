@@ -12,6 +12,7 @@ import java.util.List;
 public class DeskRepository {
     private DeskDao deskDao;
     private CardRepository cardRepository = App.getInstance().getCardRepository();;
+    private LearningSessionRepository learningSessionRepository = App.getInstance().getLearningSessionRepository();
 
     public DeskRepository(Context context) {
         this.deskDao = new DeskDao(context);
@@ -32,6 +33,11 @@ public class DeskRepository {
 
         for (var card : cards) {
             cardRepository.deleteCard(card);
+        }
+
+        var sessions = learningSessionRepository.getSessionsByDeskId(desk.getId());
+        for (var session : sessions) {
+            learningSessionRepository.deleteSession(session.getId());
         }
 
         deskDao.deleteDesk(desk.getId());
