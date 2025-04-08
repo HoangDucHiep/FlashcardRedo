@@ -20,13 +20,16 @@ import com.cntt2.flashcard.App;
 import com.cntt2.flashcard.R;
 import com.cntt2.flashcard.data.repository.CardRepository;
 import com.cntt2.flashcard.data.repository.LearningSessionRepository;
+import com.cntt2.flashcard.data.repository.ReviewRepository;
 import com.cntt2.flashcard.model.Card;
 import com.cntt2.flashcard.model.LearningSession;
+import com.cntt2.flashcard.model.Review;
 import com.cntt2.flashcard.ui.adapters.ShowStudyCardToLearnAdapter;
 import com.cntt2.flashcard.ui.animation.ZoomOutPageTransformer;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -44,12 +47,14 @@ public class StudyActivity extends AppCompatActivity {
 
     CardRepository cardRepository = App.getInstance().getCardRepository();
     LearningSessionRepository sessionRepository = App.getInstance().getLearningSessionRepository();
+
     private int deskId;
 
     private LearningSession currentSession;
     private long sessionId = -1; // ID của session sau khi lưu
     private List<Card> cardList; // Danh sách thẻ để học
     private Map<Integer, Integer> cardResponses; // Lưu phản hồi của người dùng cho từng thẻ (cardId -> quality)
+    private List<Card> cardsToRelearn;
     private int correctAnswers = 0; // Số câu trả lời đúng để tính hiệu suất
 
     @Override
@@ -85,6 +90,12 @@ public class StudyActivity extends AppCompatActivity {
         cardList = new ArrayList<>();
         cardList.addAll(cardRepository.getNewCards(deskId));
         cardList.addAll(cardRepository.getCardsToReview(deskId));
+
+        if (cardList.size() == 0) {
+            cardList.addAll(cardRepository.getCardsByDeskId(deskId));
+        }
+
+        cardsToRelearn = new ArrayList<>();
 
         currentSession = new LearningSession();
         currentSession.setDeskId(deskId);
@@ -157,26 +168,133 @@ public class StudyActivity extends AppCompatActivity {
 
 
 
-        btnAgain.setOnClickListener(v -> {
-            // Đặt lại trạng thái thẻ hiện tại
-            FrontLayoutUnder.setVisibility(View.VISIBLE);  // Hiển thị mặt trước
-            BackLayoutUnder.setVisibility(View.GONE);     // Ẩn mặt sau
-            WebView webFront = findViewById(R.id.WebViewCardItemFront);
-            WebView webBack = findViewById(R.id.WebViewCardItemBack);
-
-            // Lật lại thẻ về trạng thái ban đầu nếu đã lật
-            if (webBack.getVisibility() == View.VISIBLE) {
-                flipCard(webBack, webFront);
-                fadeLayouts(FrontLayoutUnder, BackLayoutUnder, true);
-            }
-
-            // Cập nhật lại dữ liệu trong adapter khi mặt trước/sau thay đổi
-            cardAdapter.notifyItemChanged(viewPagerStudyCard.getCurrentItem());
+        // Xử lý nút đánh giá
+        setupResponseButtons();
+        // Nút thoát
+        imageButtonStudyCardCancel.setOnClickListener(v -> cancelSession());
+        // Nút hoàn thành
+        btnStudyCardCompletedShow.setOnClickListener(v -> {
+            setResult(RESULT_OK);
+            finish();
         });
-        btnHard.setOnClickListener(v -> goToNextCard());
-        btnGood.setOnClickListener(v -> goToNextCard());
-        btnEasy.setOnClickListener(v -> goToNextCard());
+    }
 
+    private void setupResponseButtons() {
+        btnAgain.setOnClickListener(v -> {
+            int currentPosition = viewPagerStudyCard.getCurrentItem();
+            Card currentCard = cardList.get(currentPosition);
+            cardsToRelearn.add(currentCard); // Thêm vào danh sách học lại
+            recordResponse(0); // Ghi nhận phản hồi "Again"
+            goToNextCard(); // Chuyển sang thẻ tiếp theo
+        });
+
+        btnHard.setOnClickListener(v -> {
+            recordResponse(1); // Quality = 1 (Hard)
+            goToNextCard();
+        });
+
+        btnGood.setOnClickListener(v -> {
+            recordResponse(2); // Quality = 2 (Good)
+            goToNextCard();
+        });
+
+        btnEasy.setOnClickListener(v -> {
+            recordResponse(3); // Quality = 3 (Easy)
+            goToNextCard();
+        });
+    }
+
+    private void recordResponse(int quality) {
+        int currentPosition = viewPagerStudyCard.getCurrentItem();
+        Card currentCard = cardList.get(currentPosition);
+        cardResponses.put(currentCard.getId(), quality);
+        if (quality >= 2) { // Good hoặc Easy được coi là đúng
+            correctAnswers++;
+        }
+    }
+
+    private void resetCardState() {
+        FrontLayoutUnder.setVisibility(View.VISIBLE);
+        BackLayoutUnder.setVisibility(View.GONE);
+        WebView webFront = findViewById(R.id.WebViewCardItemFront);
+        WebView webBack = findViewById(R.id.WebViewCardItemBack);
+        if (webBack.getVisibility() == View.VISIBLE) {
+            flipCard(webBack, webFront);
+            fadeLayouts(FrontLayoutUnder, BackLayoutUnder, true);
+        }
+        cardAdapter.notifyItemChanged(viewPagerStudyCard.getCurrentItem());
+    }
+
+    private void completeSession() {
+        String endTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault()).format(new Date());
+        currentSession.setEndTime(endTime);
+        currentSession.setCardsStudied(cardResponses.size());
+        currentSession.setPerformance((double) correctAnswers / cardResponses.size());
+
+        // Lưu session vào cơ sở dữ liệu
+        sessionId = sessionRepository.insertSession(currentSession);
+
+        // Cập nhật review cho từng thẻ
+        ReviewRepository reviewRepository = App.getInstance().getReviewRepository();
+        for (Map.Entry<Integer, Integer> entry : cardResponses.entrySet()) {
+            int cardId = entry.getKey();
+            int quality = entry.getValue();
+            Review review = reviewRepository.getReviewByCardId(cardId);
+            if (review != null) {
+                updateReviewAfterStudy(review, quality);
+                reviewRepository.updateReview(review);
+            }
+        }
+
+        viewPagerStudyCard.setVisibility(View.GONE);
+        FrontLayoutUnder.setVisibility(View.GONE);
+        BackLayoutUnder.setVisibility(View.GONE);
+        imageButtonStudyCardCancel.setVisibility(View.GONE);
+        tvStudyCardCompletedShow.setVisibility(View.VISIBLE);
+        btnStudyCardCompletedShow.setVisibility(View.VISIBLE);
+    }
+
+    private void cancelSession() {
+        // Không lưu session hoặc cập nhật review
+        finish();
+    }
+
+    private void updateReviewAfterStudy(Review review, int quality) {
+        if (quality < 0 || quality > 3) return;
+
+        if (review.getInterval() == 0) { // Thẻ mới
+            review.setInterval(1);
+            review.setRepetition(1);
+        } else {
+            if (quality == 0) { // Again
+                review.setRepetition(0);
+                review.setInterval(1);
+            } else {
+                review.setRepetition(review.getRepetition() + 1);
+                if (quality == 1) { // Hard
+                    review.setInterval(review.getInterval());
+                } else if (quality == 2) { // Good
+                    review.setInterval(review.getInterval() + 1);
+                } else if (quality == 3) { // Easy
+                    review.setInterval(review.getInterval() * 2);
+                }
+            }
+        }
+
+        // Cập nhật ease
+        if (quality == 0) {
+            review.setEase(Math.max(1.3, review.getEase() - 0.8));
+        } else if (quality == 1) {
+            review.setEase(review.getEase() - 0.15);
+        } else if (quality >= 2) {
+            review.setEase(review.getEase() + 0.15);
+        }
+
+        // Cập nhật ngày ôn tập tiếp theo
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.DAY_OF_YEAR, review.getInterval());
+        review.setNextReviewDate(new SimpleDateFormat("yyyy-MM-dd").format(calendar.getTime()));
+        review.setLastReviewed(new SimpleDateFormat("yyyy-MM-dd").format(new Date()));
     }
 
     // Hàm gói nội dung HTML
@@ -246,11 +364,18 @@ public class StudyActivity extends AppCompatActivity {
         if (currentItem < totalItems - 1) {
             viewPagerStudyCard.setCurrentItem(currentItem + 1);
         } else {
-            viewPagerStudyCard.setVisibility(View.GONE);
-            FrontLayoutUnder.setVisibility(View.GONE);
-            BackLayoutUnder.setVisibility(View.GONE);
-            tvStudyCardCompletedShow.setVisibility(View.VISIBLE);
-            btnStudyCardCompletedShow.setVisibility(View.VISIBLE);
+
+            // Kiểm tra nếu còn thẻ trong cardsToRelearn
+            if (!cardsToRelearn.isEmpty()) {
+                cardList.clear(); // Xóa danh sách cũ
+                cardList.addAll(cardsToRelearn); // Thêm danh sách học lại
+                cardsToRelearn.clear(); // Xóa danh sách tạm
+                cardAdapter = new ShowStudyCardToLearnAdapter(cardList);
+                viewPagerStudyCard.setAdapter(cardAdapter);
+                viewPagerStudyCard.setCurrentItem(0); // Bắt đầu lại từ thẻ đầu tiên
+            } else {
+                completeSession(); // Hoàn thành nếu không còn thẻ nào
+            }
         }
     }
 

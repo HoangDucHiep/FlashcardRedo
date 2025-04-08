@@ -35,6 +35,8 @@ import java.util.List;
  * create an instance of this fragment.
  */
 public class CardsFragment extends Fragment {
+    private static final int REQUEST_START_A_LEARNING_SESSION = 301;
+
 
     private RecyclerView recyclerView;
     private FlashcardAdapter adapter;
@@ -151,7 +153,7 @@ public class CardsFragment extends Fragment {
                     intent.putExtra("deskId", deskId);
 
                     // Chuyển đến StudyActivity
-                    startActivity(intent);
+                    startActivityForResult(intent, REQUEST_START_A_LEARNING_SESSION);
 
                 } else {
                     // Hiển thị thông báo nếu không có thẻ nào
@@ -161,6 +163,14 @@ public class CardsFragment extends Fragment {
         });
 
         return view;
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_START_A_LEARNING_SESSION && resultCode == getActivity().RESULT_OK) {
+            updateToLearnAndToReview();
+        }
     }
 
     private void updateCardCount() {
@@ -177,17 +187,20 @@ public class CardsFragment extends Fragment {
         adapter.setData(filtered); //
     }
 
+    private void updateToLearnAndToReview() {
+        cardsToReview = cardRepository.getCardsToReview(deskId);
+        newToLearn = cardRepository.getNewCards(deskId);
+        toLearn.setText(String.valueOf(newToLearn.size()));
+        toReview.setText(String.valueOf(cardsToReview.size()));
+    }
+
 
 
     public void addNewCard() {
+        cardList = cardRepository.getCardsByDeskId(deskId);
+        adapter.setData(cardList);
+        updateCardCount();
+        updateToLearnAndToReview();
 
-                cardList = cardRepository.getCardsByDeskId(deskId);
-                adapter.setData(cardList);
-                updateCardCount();
-                cardsToReview = cardRepository.getCardsToReview(deskId);
-                newToLearn = cardRepository.getNewCards(deskId);
-
-        toLearn.setText(String.valueOf(newToLearn.size()));
-        toReview.setText(String.valueOf(cardsToReview.size()));
     }
 }

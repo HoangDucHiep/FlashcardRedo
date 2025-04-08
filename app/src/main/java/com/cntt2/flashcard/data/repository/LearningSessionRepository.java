@@ -14,8 +14,8 @@ public class LearningSessionRepository {
         sessionDao = new LearningSessionDao(context);
     }
 
-    public void insertSession(LearningSession session) {
-        sessionDao.insertSession(session);
+    public long insertSession(LearningSession session) {
+        return sessionDao.insertSession(session);
     }
 
     public List<LearningSession> getSessionsByDeskId(int deskId) {
