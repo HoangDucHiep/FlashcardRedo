@@ -33,6 +33,7 @@ android {
 
 dependencies {
     implementation("jp.wasabeef:richeditor-android:2.0.0")
+    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)

@@ -1,14 +1,126 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ui.fragments.StatisticsFragment">
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="#1B2433">
 
-    <!-- TODO: Update blank fragment layout -->
+    <!-- Tiêu đề -->
     <TextView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:text="@string/hello_blank_fragment" />
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Statistics to track your progress"
+        android:textColor="#FFFFFF"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp"/>
 
-</FrameLayout>
+    <!-- Bộ lọc -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Range:"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:layout_marginEnd="8dp"/>
+            <Spinner
+                android:id="@+id/spinnerRange"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@android:drawable/btn_dropdown"
+                android:spinnerMode="dropdown"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Chart Type:"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:layout_marginEnd="8dp"/>
+            <Spinner
+                android:id="@+id/spinnerChartType"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@android:drawable/btn_dropdown"
+                android:spinnerMode="dropdown"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Biểu đồ và nhãn trục -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="300dp"
+        android:layout_marginBottom="16dp">
+
+        <!-- Nhãn trục Y -->
+
+        <!-- Biểu đồ -->
+
+        <TextView
+            android:id="@+id/yAxisLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="37dp"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentTop="true"
+            android:layout_marginStart="-23dp"
+            android:layout_marginTop="55dp"
+            android:gravity="bottom"
+            android:padding="0dp"
+            android:rotation="-90"
+            android:text="Cards Count"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp" />
+
+        <com.github.mikephil.charting.charts.LineChart
+            android:id="@+id/lineChart"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_toEndOf="@id/yAxisLabel"
+            android:layout_marginStart="0dp"/>
+
+        <!-- Nhãn trục X -->
+        <TextView
+            android:id="@+id/xAxisLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentBottom="true"
+            android:layout_marginEnd="2dp"
+            android:layout_marginBottom="0dp"
+            android:text="Session Number"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp" />
+    </RelativeLayout>
+
+    <!-- Chú thích -->
+
+    <!-- Nút Clear Records -->
+    <Button
+        android:id="@+id/btnClearRecords"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Clear Records"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#00C4B4"
+        android:layout_gravity="center"
+        android:paddingHorizontal="16dp"/>
+
+</LinearLayout>

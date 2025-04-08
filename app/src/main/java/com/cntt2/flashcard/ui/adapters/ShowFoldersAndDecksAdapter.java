@@ -89,7 +89,6 @@ public class ShowFoldersAndDecksAdapter extends BaseAdapter {
         return flattenedList.get(position).type;
     }
 
-
     @Override
     public long getItemId(int position) {
         Object item = getItem(position);
@@ -106,9 +105,9 @@ public class ShowFoldersAndDecksAdapter extends BaseAdapter {
         ListItem listItem = flattenedList.get(position);
 
         if (listItem.type == TYPE_FOLDER) {
-            return getFolderView(position, convertView, parent, (Folder)listItem.item, listItem.level);
+            return getFolderView(position, convertView, parent, (Folder) listItem.item, listItem.level);
         } else {
-            return getDeskView(position, convertView, parent, (Desk)listItem.item, listItem.level);
+            return getDeskView(position, convertView, parent, (Desk) listItem.item, listItem.level);
         }
     }
 
@@ -124,30 +123,32 @@ public class ShowFoldersAndDecksAdapter extends BaseAdapter {
         ImageView folderIcon = view.findViewById(R.id.imageView2);
         folderName.setText(folder.getName());
 
-        // đặt margin
+        // Đặt margin thụt lề
         ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) folderIcon.getLayoutParams();
         params.leftMargin = level * indentWidth;
         folderIcon.setLayoutParams(params);
 
-        // Nếu có thư mục con thì hiện dropdownicon
+        // Nếu có thư mục con hoặc desk thì hiện dropdownIcon
         boolean hasSubFoldersOrDesks = !folder.getSubFolders().isEmpty() || !folder.getDesks().isEmpty();
         if (!hasSubFoldersOrDesks) {
             dropdownIcon.setVisibility(View.INVISIBLE);
         } else {
             dropdownIcon.setVisibility(View.VISIBLE);
-            // Change dropdown icon based on expansion state
+            // Thay đổi icon dropdown dựa trên trạng thái mở rộng
             dropdownIcon.setImageResource(folder.isExpanded() ?
                     R.drawable.dropdownup : R.drawable.dropdown);
         }
 
-        dropdownIcon.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
+        // Gắn sự kiện click cho toàn bộ view của thư mục
+        view.setOnClickListener(v -> {
+            // Chỉ mở rộng/thu gọn nếu thư mục có subfolder hoặc desk
+            if (hasSubFoldersOrDesks) {
                 folder.setExpanded(!folder.isExpanded());
                 updateFlattenedList();
                 notifyDataSetChanged();
             }
         });
+
         return view;
     }
 
@@ -161,7 +162,7 @@ public class ShowFoldersAndDecksAdapter extends BaseAdapter {
         ImageView deskIcon = view.findViewById(R.id.deckIcon);
         deskName.setText(desk.getName());
 
-        // Đặt margin tụt lề
+        // Đặt margin thụt lề
         ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) deskIcon.getLayoutParams();
         params.leftMargin = level * indentWidth;
         deskIcon.setLayoutParams(params);

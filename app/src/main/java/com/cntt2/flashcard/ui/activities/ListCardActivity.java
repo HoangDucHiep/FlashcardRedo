@@ -83,11 +83,7 @@ public class ListCardActivity extends AppCompatActivity {
             resetButtonBackground();
             btnThongKe.setBackgroundResource(R.drawable.toggle_button_background);
 
-            StatisticsFragment statisticsFragment = new StatisticsFragment();
-            Bundle bundle = new Bundle();
-            bundle.putInt("deskId", deskId);
-            statisticsFragment.setArguments(bundle);
-
+            StatisticsFragment statisticsFragment = StatisticsFragment.newInstance(deskId);
             FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
             transaction.replace(R.id.fragmentContainer, statisticsFragment);
             transaction.commit();
