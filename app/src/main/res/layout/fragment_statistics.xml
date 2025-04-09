@@ -119,6 +119,7 @@
         android:layout_height="wrap_content"
         android:text="Clear Records"
         android:textColor="#FFFFFF"
+        android:visibility="gone"
         android:backgroundTint="#00C4B4"
         android:layout_gravity="center"
         android:paddingHorizontal="16dp"/>
