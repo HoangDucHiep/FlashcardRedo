@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@android:color/white">
+
+    <!-- Tiêu đề -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Card Options"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:paddingBottom="8dp" />
+
+    <!-- Tùy chọn Edit -->
+    <TextView
+        android:id="@+id/option_edit"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="Edit"
+        android:textSize="16sp"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:drawableStart="@drawable/ic_edit"
+        android:drawablePadding="16dp"
+        android:background="?android:attr/selectableItemBackground" />
+
+    <!-- Tùy chọn Move to desk -->
+    <TextView
+        android:id="@+id/option_move_to_desk"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="Move to desk"
+        android:textSize="16sp"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:drawableStart="@drawable/ic_move"
+        android:drawablePadding="16dp"
+        android:background="?android:attr/selectableItemBackground" />
+
+    <!-- Tùy chọn Delete -->
+    <TextView
+        android:id="@+id/option_delete"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="Delete"
+        android:textSize="16sp"
+        android:textColor="#FF5555"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:drawableStart="@drawable/ic_delete"
+        android:drawablePadding="16dp"
+        android:background="?android:attr/selectableItemBackground" />
+
+</LinearLayout>

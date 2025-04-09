@@ -101,7 +101,7 @@
         <!-- TextView ở giữa -->
         <TextView
             android:id="@+id/tvShowCardStep"
-            android:layout_width="0dp"
+            android:layout_width="334dp"
             android:layout_height="match_parent"
             android:layout_marginStart="16dp"
             android:layout_marginEnd="16dp"
@@ -117,6 +117,7 @@
             android:layout_width="40dp"
             android:layout_height="48dp"
             android:layout_marginEnd="8dp"
+            android:visibility="visible"
             android:src="@android:drawable/ic_menu_sort_by_size"
             android:contentDescription="hamburger_menu_button"
             android:background="?attr/selectableItemBackground" />

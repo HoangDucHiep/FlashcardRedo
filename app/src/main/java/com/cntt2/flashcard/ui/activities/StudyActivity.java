@@ -49,6 +49,8 @@ public class StudyActivity extends AppCompatActivity {
     CardRepository cardRepository = App.getInstance().getCardRepository();
     LearningSessionRepository sessionRepository = App.getInstance().getLearningSessionRepository();
 
+    int totalItems;
+
     private int deskId;
 
     private LearningSession currentSession;
@@ -97,6 +99,7 @@ public class StudyActivity extends AppCompatActivity {
             cardList.addAll(cardRepository.getCardsByDeskId(deskId));
         }
 
+
         cardsToRelearn = new ArrayList<>();
 
         currentSession = new LearningSession();
@@ -104,6 +107,8 @@ public class StudyActivity extends AppCompatActivity {
         String currentTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault()).format(new Date());
         currentSession.setStartTime(currentTime);
         cardResponses = new HashMap<>();
+
+
 
 
         // Tạo adapter và gắn vào ViewPager2
@@ -135,6 +140,8 @@ public class StudyActivity extends AppCompatActivity {
             cardAdapter.notifyItemChanged(viewPagerStudyCard.getCurrentItem());
         });
 
+        totalItems = cardAdapter.getItemCount();
+
         // Đăng ký callback để theo dõi sự kiện khi vuốt qua các thẻ
         viewPagerStudyCard.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
@@ -143,7 +150,7 @@ public class StudyActivity extends AppCompatActivity {
                 fadeLayouts(FrontLayoutUnder, BackLayoutUnder, true);
 
                 // Cập nhật trạng thái thẻ hiện tại vào tvStudyCardStep
-                int totalItems = cardAdapter.getItemCount();  // Tổng số thẻ
+                 // Tổng số thẻ
 
                 String stepText = getString(R.string.study_card_step, position + 1, totalItems);
                 tvStudyCardStep.setText(stepText);

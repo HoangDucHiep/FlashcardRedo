@@ -112,7 +112,6 @@ public class HomeFragment extends Fragment {
             options.add(new OptionsDialog.Option("Edit", R.drawable.ic_edit, 0xFFFFFFFF, () -> editFolder(folder)));
             options.add(new OptionsDialog.Option("Delete", R.drawable.ic_delete, 0xFFFF5555, () -> {
                 AlertDialog dialog = ConfirmDialog.createConfirmDialog(
-                        this,
                         requireContext(),
                         "Delete Folder",
                         "Are you sure you want to delete this folder?",
@@ -127,7 +126,6 @@ public class HomeFragment extends Fragment {
             options.add(new OptionsDialog.Option(desk.isPublic() ? "Make private" : "Make public", R.drawable.ic_public, 0xFFFFFFFF, () -> handlePublicDesk(desk)));
             options.add(new OptionsDialog.Option("Delete", R.drawable.ic_delete, 0xFFFF5555, () -> {
                 AlertDialog dialog = ConfirmDialog.createConfirmDialog(
-                        this,
                         requireContext(),
                         "Delete Desk",
                         "Are you sure you want to delete this desk?",

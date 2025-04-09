@@ -9,6 +9,7 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -25,15 +26,21 @@ public class FlashcardAdapter extends RecyclerView.Adapter<FlashcardAdapter.Card
 
     private List<Card> flashcardList;
     private OnCardLongClickListener longClickListener;
+    private OnCardClickListener clickListener;
 
     // Callback interface để xử lý long click
     public interface OnCardLongClickListener {
         void onCardLongClick(Card card, int position);
     }
 
-    public FlashcardAdapter(List<Card> flashcardList, OnCardLongClickListener listener) {
+    public interface OnCardClickListener {
+        void onCardClick(int position);
+    }
+
+    public FlashcardAdapter(List<Card> flashcardList, OnCardLongClickListener listener, OnCardClickListener clickListener) {
         this.flashcardList = flashcardList != null ? flashcardList : new ArrayList<>();
         this.longClickListener = listener;
+        this.clickListener = clickListener;
     }
 
     @NonNull
@@ -71,6 +78,12 @@ public class FlashcardAdapter extends RecyclerView.Adapter<FlashcardAdapter.Card
                 return true;
             }
             return false;
+        });
+
+        holder.itemView.setOnClickListener(v -> {
+            if (clickListener != null) {
+                clickListener.onCardClick(position);
+            }
         });
     }
 

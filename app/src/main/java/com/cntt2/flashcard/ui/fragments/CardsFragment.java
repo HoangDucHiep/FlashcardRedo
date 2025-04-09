@@ -8,7 +8,6 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.PopupMenu;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -23,6 +22,7 @@ import com.cntt2.flashcard.data.repository.ReviewRepository;
 import com.cntt2.flashcard.model.Card;
 import com.cntt2.flashcard.model.Desk;
 import com.cntt2.flashcard.ui.activities.AddCardActivity;
+import com.cntt2.flashcard.ui.activities.ShowCardActivity;
 import com.cntt2.flashcard.ui.activities.StudyActivity;
 import com.cntt2.flashcard.ui.adapters.FlashcardAdapter;
 import com.cntt2.flashcard.utils.ConfirmDialog;
@@ -36,7 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLongClickListener {
+public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLongClickListener, FlashcardAdapter.OnCardClickListener {
     private static final int REQUEST_START_A_LEARNING_SESSION = 301;
     private static final int REQUEST_EDIT_CARD = 302;
 
@@ -107,7 +107,7 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
         toLearn.setText(String.valueOf(newToLearn.size()));
         toReview.setText(String.valueOf(cardsToReview.size()));
 
-        adapter = new FlashcardAdapter(cardList, this); // Truyền this làm listener
+        adapter = new FlashcardAdapter(cardList, this, this); // Truyền this làm listener
         recyclerView.setAdapter(adapter);
         updateCardCount();
 
@@ -155,7 +155,7 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
         options.add(new OptionsDialog.Option("Edit", R.drawable.ic_edit, 0xFFFFFFFF, () -> editCard(card)));
         options.add(new OptionsDialog.Option("Move to desk", R.drawable.ic_move, 0xFFFFFFFF, () -> moveCard(card)));
         options.add(new OptionsDialog.Option("Delete", R.drawable.ic_delete, 0xFFFF5555, () -> {
-            ConfirmDialog.createConfirmDialog(this, getContext(), "Delete card", "Are you sure you want to delete this card", view -> {
+            ConfirmDialog.createConfirmDialog(requireContext(), "Delete card", "Are you sure you want to delete this card", view -> {
                 deleteCard(card, position);
             }, view -> {
                 // Do nothing
@@ -163,6 +163,14 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
         }));
 
         OptionsDialog.showOptionsDialog(requireContext(), recyclerView.getChildAt(position), options);
+    }
+
+    @Override
+    public void onCardClick(int position) {
+        Intent intent = new Intent(getContext(), ShowCardActivity.class);
+        intent.putExtra("deskId", deskId);
+        intent.putExtra("startPosition", position); // Truyền position của Card
+        startActivityForResult(intent, REQUEST_START_A_LEARNING_SESSION);
     }
 
     private void editCard(Card card) {
