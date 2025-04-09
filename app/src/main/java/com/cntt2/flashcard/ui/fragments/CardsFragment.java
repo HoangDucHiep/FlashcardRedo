@@ -26,6 +26,7 @@ import com.cntt2.flashcard.ui.activities.AddCardActivity;
 import com.cntt2.flashcard.ui.activities.StudyActivity;
 import com.cntt2.flashcard.ui.adapters.FlashcardAdapter;
 import com.cntt2.flashcard.utils.ConfirmDialog;
+import com.cntt2.flashcard.utils.OptionsDialog;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -150,27 +151,18 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
 
     @Override
     public void onCardLongClick(Card card, int position) {
-        PopupMenu popup = new PopupMenu(getContext(), recyclerView.getChildAt(position));
-        popup.getMenuInflater().inflate(R.menu.card_popup_menu, popup.getMenu());
-        popup.setOnMenuItemClickListener(item -> {
-            int itemId = item.getItemId();
-            if (itemId == R.id.mnuEditCard) {
-                editCard(card);
-                return true;
-            } else if (itemId == R.id.mnuMoveCard) {
-                moveCard(card);
-                return true;
-            } else if (itemId == R.id.mnuDeleteCard) {
-                ConfirmDialog.createConfirmDialog(this, getContext(), "Delete card", "Are you sure you want to delete this card", view -> {
-                    deleteCard(card, position);
-                }, view -> {
-                    // Do nothing
-                }).show();
-                return true;
-            }
-            return false;
-        });
-        popup.show();
+        List<OptionsDialog.Option> options = new ArrayList<>();
+        options.add(new OptionsDialog.Option("Edit", R.drawable.ic_edit, 0xFFFFFFFF, () -> editCard(card)));
+        options.add(new OptionsDialog.Option("Move to desk", R.drawable.ic_move, 0xFFFFFFFF, () -> moveCard(card)));
+        options.add(new OptionsDialog.Option("Delete", R.drawable.ic_delete, 0xFFFF5555, () -> {
+            ConfirmDialog.createConfirmDialog(this, getContext(), "Delete card", "Are you sure you want to delete this card", view -> {
+                deleteCard(card, position);
+            }, view -> {
+                // Do nothing
+            }).show();
+        }));
+
+        OptionsDialog.showOptionsDialog(requireContext(), recyclerView.getChildAt(position), options);
     }
 
     private void editCard(Card card) {

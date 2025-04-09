@@ -30,6 +30,7 @@ import com.cntt2.flashcard.model.Folder;
 import com.cntt2.flashcard.ui.activities.ListCardActivity;
 import com.cntt2.flashcard.ui.adapters.ShowFoldersAndDecksAdapter;
 import com.cntt2.flashcard.utils.ConfirmDialog;
+import com.cntt2.flashcard.utils.OptionsDialog;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
@@ -103,70 +104,41 @@ public class HomeFragment extends Fragment {
     }
 
     private void showPopupMenu(View view, int position) {
-        PopupMenu popupMenu = new PopupMenu(requireContext(), view);
         Object selectedItem = adapter.getItem(position);
+        List<OptionsDialog.Option> options = new ArrayList<>();
 
-        // Kiểm tra loại item và inflate menu tương ứng
         if (selectedItem instanceof Folder) {
-            popupMenu.getMenuInflater().inflate(R.menu.folder_popup_menu, popupMenu.getMenu());
+            Folder folder = (Folder) selectedItem;
+            options.add(new OptionsDialog.Option("Edit", R.drawable.ic_edit, 0xFFFFFFFF, () -> editFolder(folder)));
+            options.add(new OptionsDialog.Option("Delete", R.drawable.ic_delete, 0xFFFF5555, () -> {
+                AlertDialog dialog = ConfirmDialog.createConfirmDialog(
+                        this,
+                        requireContext(),
+                        "Delete Folder",
+                        "Are you sure you want to delete this folder?",
+                        v -> deleteFolder(folder),
+                        v -> {}
+                );
+                dialog.show();
+            }));
         } else if (selectedItem instanceof Desk) {
-            popupMenu.getMenuInflater().inflate(R.menu.desk_popup_menu, popupMenu.getMenu());
-            // Cập nhật tiêu đề của "Make public" dựa trên trạng thái hiện tại của Desk
             Desk desk = (Desk) selectedItem;
-            popupMenu.getMenu().findItem(R.id.desk_action_public).setTitle(desk.isPublic() ? "Make private" : "Make public");
+            options.add(new OptionsDialog.Option("Edit", R.drawable.ic_edit, 0xFFFFFFFF, () -> editDesk(desk)));
+            options.add(new OptionsDialog.Option(desk.isPublic() ? "Make private" : "Make public", R.drawable.ic_public, 0xFFFFFFFF, () -> handlePublicDesk(desk)));
+            options.add(new OptionsDialog.Option("Delete", R.drawable.ic_delete, 0xFFFF5555, () -> {
+                AlertDialog dialog = ConfirmDialog.createConfirmDialog(
+                        this,
+                        requireContext(),
+                        "Delete Desk",
+                        "Are you sure you want to delete this desk?",
+                        v -> deleteDesk(desk),
+                        v -> {}
+                );
+                dialog.show();
+            }));
         }
 
-        popupMenu.setOnMenuItemClickListener(item -> {
-            if (selectedItem instanceof Folder) {
-                // Xử lý menu cho Folder
-                if (item.getItemId() == R.id.folder_action_edit) {
-                    editFolder((Folder) selectedItem);
-                    return true;
-                } else if (item.getItemId() == R.id.folder_action_delete) {
-                    AlertDialog dialog = ConfirmDialog.createConfirmDialog(
-                            this,
-                            requireContext(),
-                            "Delete Folder",
-                            "Are you sure you want to delete this folder?",
-                            v -> {
-                                deleteFolder((Folder) selectedItem);
-                            },
-                            v -> {}
-                    );
-                    dialog.show();
-                    return true;
-                }
-            } else if (selectedItem instanceof Desk) {
-                // Xử lý menu cho Desk
-                if (item.getItemId() == R.id.desk_action_edit) {
-                    editDesk((Desk) selectedItem);
-                    return true;
-                } else if (item.getItemId() == R.id.desk_action_public) {
-                    handlePublicDesk((Desk) selectedItem);
-                    return true;
-                } else if (item.getItemId() == R.id.desk_action_delete) {
-                    AlertDialog dialog = ConfirmDialog.createConfirmDialog(
-                            this,
-                            requireContext(),
-                            "Delete Desk",
-                            "Are you sure you want to delete this desk?",
-                            v -> {
-                                deleteDesk((Desk) selectedItem);
-                            },
-                            v -> {}
-                    );
-                    dialog.show();
-                    return true;
-                }
-            }
-            return false;
-        });
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            popupMenu.setGravity(Gravity.CENTER);
-        }
-
-        popupMenu.show();
+        OptionsDialog.showOptionsDialog(requireContext(), view, options);
     }
 
     private void handlePublicDesk(Desk desk) {
@@ -191,14 +163,14 @@ public class HomeFragment extends Fragment {
         folderNameInput.setText(folder.getName());
 
         Spinner parentFolderSpinner = view.findViewById(R.id.parentFolderSpinner);
-        List<String> folderNames = getFolderNamesWithIndent();
+        List<String> folderNames = getFolderNamesWithIndent(folder.getId());
         ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(
                 requireContext(), android.R.layout.simple_spinner_item, folderNames
         );
         spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         parentFolderSpinner.setAdapter(spinnerAdapter);
 
-        List<Folder> allFolders = getAllFoldersList();
+        List<Folder> allFolders = getAllFoldersList(folder.getId());
         int parentPosition = 0;
         if (folder.getParentFolderId() != null) {
             for (int i = 0; i < allFolders.size(); i++) {
@@ -270,6 +242,8 @@ public class HomeFragment extends Fragment {
         folderSpinner.setAdapter(spinnerAdapter);
 
         List<Folder> allFolders = getAllFoldersList();
+
+
         int folderPosition = 0;
 
         for (int i = 0; i < allFolders.size(); i++) {
@@ -455,29 +429,43 @@ public class HomeFragment extends Fragment {
     }
 
     private List<String> getFolderNamesWithIndent() {
+        return getFolderNamesWithIndent(-1);
+    }
+
+    private List<String> getFolderNamesWithIndent(int excludedFolderId) {
         List<String> folderNames = new ArrayList<>();
         folderNames.add(getString(R.string.no_parent_folder)); // "No Parent Folder"
-        getAllFoldersWithIndent(nestedFoldersDesks, folderNames, "");
+        getAllFoldersWithIndent(nestedFoldersDesks, folderNames, "", excludedFolderId);
         return folderNames;
     }
 
-    private void getAllFoldersWithIndent(List<Folder> folders, List<String> folderNames, String indent) {
+    private void getAllFoldersWithIndent(List<Folder> folders, List<String> folderNames, String indent, int excludedFolderId) {
         for (Folder folder : folders) {
+            if (folder.getId() == excludedFolderId) {
+                continue; // Bỏ qua thư mục đang được chỉnh sửa
+            }
             folderNames.add(indent + folder.getName());
-            getAllFoldersWithIndent(folder.getSubFolders(), folderNames, indent + "  ");
+            getAllFoldersWithIndent(folder.getSubFolders(), folderNames, indent + "  ", excludedFolderId);
         }
     }
 
     private List<Folder> getAllFoldersList() {
+        return getAllFoldersList(-1);
+    }
+
+    private List<Folder> getAllFoldersList(int excludedFolderId) {
         List<Folder> allFolders = new ArrayList<>();
-        getAllFolders(nestedFoldersDesks, allFolders);
+        getAllFolders(nestedFoldersDesks, allFolders, excludedFolderId);
         return allFolders;
     }
 
-    private void getAllFolders(List<Folder> folders, List<Folder> allFolders) {
+    private void getAllFolders(List<Folder> folders, List<Folder> allFolders, int excludedFolderId) {
         for (Folder folder : folders) {
+            if (folder.getId() == excludedFolderId) {
+                continue; // Bỏ qua thư mục đang được chỉnh sửa
+            }
             allFolders.add(folder);
-            getAllFolders(folder.getSubFolders(), allFolders);
+            getAllFolders(folder.getSubFolders(), allFolders, excludedFolderId);
         }
     }
 
