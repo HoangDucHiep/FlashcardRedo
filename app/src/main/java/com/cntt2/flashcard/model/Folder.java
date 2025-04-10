@@ -5,9 +5,12 @@ import java.util.List;
 
 public class Folder {
     private int id;
+    private String serverId;
     private Integer parentFolderId; // null for root folder
     private String name;
     private String createdAt;
+    private String lastModified;
+    private String syncStatus;
     private boolean isExpanded = false;
     private List<Folder> subFolders = new ArrayList<>();
     private List<Desk> desks = new ArrayList<>();
@@ -20,6 +23,30 @@ public class Folder {
         this.displayName = displayName;
     }
 
+    public String getServerId() {
+        return serverId;
+    }
+
+    public void setServerId(String serverId) {
+        this.serverId = serverId;
+    }
+
+    public String getLastModified() {
+        return lastModified;
+    }
+
+    public void setLastModified(String lastModified) {
+        this.lastModified = lastModified;
+    }
+
+    public String getSyncStatus() {
+        return syncStatus;
+    }
+
+    public void setSyncStatus(String syncStatus) {
+        this.syncStatus = syncStatus;
+    }
+
     public String displayName;
 
     public Folder() {}
@@ -27,6 +54,14 @@ public class Folder {
     public Folder(String name, String createdAt) {
         this.name = name;
         this.createdAt = createdAt;
+    }
+
+    public Folder(String name, Integer parentFolderId, String createdAt, String lastModified, String syncStatus) {
+        this.name = name;
+        this.parentFolderId = parentFolderId;
+        this.createdAt = createdAt;
+        this.lastModified = lastModified;
+        this.syncStatus = syncStatus;
     }
 
     public Integer getParentFolderId() {

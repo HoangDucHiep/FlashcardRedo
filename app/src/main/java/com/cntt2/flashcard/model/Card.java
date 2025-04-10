@@ -2,10 +2,13 @@ package com.cntt2.flashcard.model;
 
 public class Card {
     private int id;
+    private String serverId;
     private int deskId;
     private String front;
     private String back;
     private String createdAt;
+    private String lastModified;
+    private String syncStatus;
 
     public Card() {}
 
@@ -20,6 +23,39 @@ public class Card {
         this.back = back;
         this.createdAt = createdAt;
         this.deskId = deskId;
+    }
+
+    public Card(String front, String back, int deskId, String createdAt, String lastModified, String syncStatus) {
+        this.front = front;
+        this.back = back;
+        this.deskId = deskId;
+        this.createdAt = createdAt;
+        this.lastModified = lastModified;
+        this.syncStatus = syncStatus;
+    }
+
+    public String getServerId() {
+        return serverId;
+    }
+
+    public void setServerId(String serverId) {
+        this.serverId = serverId;
+    }
+
+    public String getLastModified() {
+        return lastModified;
+    }
+
+    public void setLastModified(String lastModified) {
+        this.lastModified = lastModified;
+    }
+
+    public String getSyncStatus() {
+        return syncStatus;
+    }
+
+    public void setSyncStatus(String syncStatus) {
+        this.syncStatus = syncStatus;
     }
 
     public int getId() {

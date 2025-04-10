@@ -9,6 +9,7 @@ import android.database.sqlite.SQLiteDatabase;
 import com.cntt2.flashcard.data.local.DatabaseHelper;
 import com.cntt2.flashcard.model.Desk;
 import com.cntt2.flashcard.model.Folder;
+import com.cntt2.flashcard.model.IdMapping;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,30 +19,32 @@ import java.util.Map;
 public class FolderDao {
     private DatabaseHelper dbHelper;
     private DeskDao deskDao;
+    private final IdMappingDao idMappingDao;
 
     public FolderDao(Context context) {
         dbHelper = new DatabaseHelper(context);
         deskDao = new DeskDao(context);
+        idMappingDao = new IdMappingDao(context);
     }
 
     public long insertFolder(Folder folder) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
-        //values.put("id", folder.getId()); // Thêm id để seed data
-        if (folder.getParentFolderId() != null) {
-            values.put("parent_folder_id", folder.getParentFolderId());
-        }
+        values.put("parent_folder_id", folder.getParentFolderId());
         values.put("name", folder.getName());
         values.put("created_at", folder.getCreatedAt());
+        values.put("last_modified", folder.getLastModified());
+        values.put("sync_status", folder.getSyncStatus());
         long id = db.insert("folders", null, values);
         db.close();
         return id;
     }
 
-    public void deleteFolder(int folderId) {
+    public int deleteFolder(int folderId) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
-        db.delete("folders", "id = ?", new String[]{String.valueOf(folderId)});
+        int rowsAffected = db.delete("folders", "id = ?", new String[]{String.valueOf(folderId)});
         db.close();
+        return rowsAffected;
     }
 
     public void updateFolder(Folder folder) {
@@ -50,8 +53,11 @@ public class FolderDao {
         if (folder.getParentFolderId() != null) {
             values.put("parent_folder_id", folder.getParentFolderId());
         }
+        values.put("parent_folder_id", folder.getParentFolderId());
         values.put("name", folder.getName());
         values.put("created_at", folder.getCreatedAt());
+        values.put("last_modified", folder.getLastModified());
+        values.put("sync_status", folder.getSyncStatus());
         db.update("folders", values, "id = ?", new String[]{String.valueOf(folder.getId())});
         db.close();
     }
@@ -62,28 +68,25 @@ public class FolderDao {
         db.close();
     }
 
-    @SuppressLint("Range")
     public List<Folder> getAllFolders() {
-        List<Folder> allFolders = new ArrayList<>();
-        Map<Integer, Folder> folderMap = new HashMap<>();
-
+        List<Folder> folders = new ArrayList<>();
         SQLiteDatabase db = dbHelper.getReadableDatabase();
         Cursor cursor = db.rawQuery("SELECT * FROM folders", null);
         if (cursor.moveToFirst()) {
             do {
                 Folder folder = new Folder();
-                folder.setId(cursor.getInt(cursor.getColumnIndex("id")));
-                int parentFolderId = cursor.isNull(cursor.getColumnIndex("parent_folder_id")) ? -1 : cursor.getInt(cursor.getColumnIndex("parent_folder_id"));
-                folder.setParentFolderId(parentFolderId == -1 ? null : parentFolderId);
-                folder.setName(cursor.getString(cursor.getColumnIndex("name")));
-                folder.setCreatedAt(cursor.getString(cursor.getColumnIndex("created_at")));
-                folderMap.put(folder.getId(), folder);
-                allFolders.add(folder);
+                folder.setId(cursor.getInt(cursor.getColumnIndexOrThrow("id")));
+                folder.setParentFolderId(cursor.isNull(cursor.getColumnIndexOrThrow("parent_folder_id")) ? null : cursor.getInt(cursor.getColumnIndexOrThrow("parent_folder_id")));
+                folder.setName(cursor.getString(cursor.getColumnIndexOrThrow("name")));
+                folder.setCreatedAt(cursor.getString(cursor.getColumnIndexOrThrow("created_at")));
+                folder.setLastModified(cursor.getString(cursor.getColumnIndexOrThrow("last_modified")));
+                folder.setSyncStatus(cursor.getString(cursor.getColumnIndexOrThrow("sync_status")));
+                folders.add(folder);
             } while (cursor.moveToNext());
         }
         cursor.close();
         db.close();
-        return allFolders;
+        return folders;
     }
 
     @SuppressLint("Range")
@@ -101,6 +104,8 @@ public class FolderDao {
                 folder.setParentFolderId(parentFolderId == -1 ? null : parentFolderId);
                 folder.setName(cursor.getString(cursor.getColumnIndex("name")));
                 folder.setCreatedAt(cursor.getString(cursor.getColumnIndex("created_at")));
+                folder.setLastModified(cursor.getString(cursor.getColumnIndexOrThrow("last_modified")));
+                folder.setSyncStatus(cursor.getString(cursor.getColumnIndexOrThrow("sync_status")));
                 folderMap.put(folder.getId(), folder);
                 allFolders.add(folder);
             } while (cursor.moveToNext());
@@ -129,5 +134,42 @@ public class FolderDao {
 
         db.close();
         return rootFolders;
+    }
+
+    public List<Folder> getPendingFolders(String syncStatus) {
+        List<Folder> folders = new ArrayList<>();
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT * FROM folders WHERE sync_status = ?", new String[]{syncStatus});
+        if (cursor.moveToFirst()) {
+            do {
+                Folder folder = new Folder();
+                folder.setId(cursor.getInt(cursor.getColumnIndexOrThrow("id")));
+                folder.setParentFolderId(cursor.isNull(cursor.getColumnIndexOrThrow("parent_folder_id")) ? null : cursor.getInt(cursor.getColumnIndexOrThrow("parent_folder_id")));
+                folder.setName(cursor.getString(cursor.getColumnIndexOrThrow("name")));
+                folder.setCreatedAt(cursor.getString(cursor.getColumnIndexOrThrow("created_at")));
+                folder.setLastModified(cursor.getString(cursor.getColumnIndexOrThrow("last_modified")));
+                folder.setSyncStatus(cursor.getString(cursor.getColumnIndexOrThrow("sync_status")));
+                folders.add(folder);
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        db.close();
+        return folders;
+    }
+
+    public void insertIdMapping(long localId, String serverId, String entityType) {
+        idMappingDao.insertIdMapping(new IdMapping((int) localId, serverId, entityType));
+    }
+
+    public Integer getLocalIdByServerId(String serverId, String entityType) {
+        return idMappingDao.getLocalIdByServerId(serverId, entityType);
+    }
+
+    public void updateSyncStatus(int localId, String syncStatus) {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put("sync_status", syncStatus);
+        db.update("folders", values, "id = ?", new String[]{String.valueOf(localId)});
+        db.close();
     }
 }
