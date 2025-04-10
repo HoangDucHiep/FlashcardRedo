@@ -6,23 +6,18 @@
         android:name="android.hardware.camera"
         android:required="false" />
 
-    <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Quyền cho việc đọc ảnh từ thư viện -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+    <uses-permission android:name="android.permission.INTERNET" /> <!-- Quyền cho việc đọc ảnh từ thư viện -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="35" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-
-    <!-- Quyền cho việc lưu ảnh (chỉ cần cho Android dưới 29) -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="35" />
-
-    <!-- Quyền cho việc sử dụng camera -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" /> <!-- Quyền cho việc lưu ảnh (chỉ cần cho Android dưới 29) -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="35" /> <!-- Quyền cho việc sử dụng camera -->
     <uses-permission android:name="android.permission.CAMERA" />
 
-
-
-
     <application
+        android:usesCleartextTraffic="true"
         android:name=".App"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -39,13 +34,14 @@
         <activity
             android:name=".ui.activities.ListCardActivity"
             android:exported="false" />
-        <activity android:name=".ui.activities.StudyActivity"
+        <activity
+            android:name=".ui.activities.StudyActivity"
             android:exported="false" />
         <activity
             android:name=".ui.activities.ShowCardActivity"
             android:exported="false" />
         <activity
-            android:name=".ui.activities.MainActivity"
+            android:name=".ui.activities.TestApiActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -63,8 +59,6 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-
     </application>
-
 
 </manifest>

@@ -3,6 +3,8 @@ package com.cntt2.flashcard;
 import android.app.Application;
 
 import com.cntt2.flashcard.data.local.DatabaseHelper;
+import com.cntt2.flashcard.data.remote.ApiClient;
+import com.cntt2.flashcard.data.remote.ApiService;
 import com.cntt2.flashcard.data.repository.CardRepository;
 import com.cntt2.flashcard.data.repository.DeskRepository;
 import com.cntt2.flashcard.data.repository.FolderRepository;
@@ -18,6 +20,8 @@ public class App extends Application {
     private ReviewRepository reviewRepository;
     private LearningSessionRepository learningSessionRepository;
 
+    private ApiService apiService;
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -30,6 +34,7 @@ public class App extends Application {
         cardRepository = new CardRepository(this);
         deskRepository = new DeskRepository(this);
         folderRepository = new FolderRepository(this);
+        apiService = ApiClient.getApiService();
         
 
 
@@ -63,5 +68,9 @@ public class App extends Application {
 
     public LearningSessionRepository getLearningSessionRepository() {
         return learningSessionRepository;
+    }
+
+    public ApiService getApiService() {
+        return apiService;
     }
 }
