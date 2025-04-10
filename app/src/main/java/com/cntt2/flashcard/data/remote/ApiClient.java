@@ -7,6 +7,8 @@ import android.util.Log;
 import com.cntt2.flashcard.App;
 import com.cntt2.flashcard.auth.AuthManager;
 import com.cntt2.flashcard.data.remote.dto.LogoutResponse;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -41,10 +43,14 @@ public class ApiClient {
         if (retrofit == null) {
             OkHttpClient client = getUnsafeOkHttpClient();
 
+            Gson gson = new GsonBuilder()
+                    .setDateFormat("yyyy-MM-dd'T'HH:mm:ss") // Định dạng Date thành yyyy-MM-dd'T'HH:mm:ss
+                    .create();
+
             retrofit = new Retrofit.Builder()
                     .baseUrl(BASE_URL)
                     .client(client)
-                    .addConverterFactory(GsonConverterFactory.create())
+                    .addConverterFactory(GsonConverterFactory.create(gson))
                     .build();
         }
         return retrofit.create(ApiService.class);

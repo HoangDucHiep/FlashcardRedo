@@ -1,16 +1,22 @@
 package com.cntt2.flashcard.data.remote.dto;
+import com.google.gson.annotations.SerializedName;
 
 import java.util.Date;
 
-public class FolderDto {
-    private String id;
+public class PostFolderDto {
+    @SerializedName("Name")
     private String name;
+
+    @SerializedName("ParentFolderId")
     private String parentFolderId;
+
+    @SerializedName("CreatedAt")
     private Date createdAt;
+
+    @SerializedName("LastModified")
     private Date lastModified;
 
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
+    // Getters and setters
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
     public String getParentFolderId() { return parentFolderId; }

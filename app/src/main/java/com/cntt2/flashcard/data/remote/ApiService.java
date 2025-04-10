@@ -2,11 +2,12 @@ package com.cntt2.flashcard.data.remote;
 
 import com.cntt2.flashcard.data.remote.dto.CardDto;
 import com.cntt2.flashcard.data.remote.dto.DeskDto;
-import com.cntt2.flashcard.data.remote.dto.FolderDto;
+import com.cntt2.flashcard.data.remote.dto.GetFolderDto;
 import com.cntt2.flashcard.data.remote.dto.ImageDto;
 import com.cntt2.flashcard.data.remote.dto.LoginRequest;
 import com.cntt2.flashcard.data.remote.dto.LoginResponse;
 import com.cntt2.flashcard.data.remote.dto.LogoutResponse;
+import com.cntt2.flashcard.data.remote.dto.PostFolderDto;
 import com.cntt2.flashcard.data.remote.dto.ReviewDto;
 import com.cntt2.flashcard.data.remote.dto.SessionDto;
 
@@ -40,13 +41,13 @@ public interface ApiService {
 
     // Folder endpoints
     @POST("api/folder")
-    Call<FolderDto> createFolder(@Body FolderDto folder);
+    Call<GetFolderDto> createFolder(@Body PostFolderDto folder);
 
     @GET("api/folder")
-    Call<List<FolderDto>> getUserFolders();
+    Call<List<GetFolderDto>> getUserFolders();
 
     @PUT("api/folder/{id}")
-    Call<Void> updateFolder(@Path("id") String id, @Body FolderDto folder);
+    Call<Void> updateFolder(@Path("id") String id, @Body PostFolderDto folder);
 
     @DELETE("api/folder/{id}")
     Call<Void> deleteFolder(@Path("id") String id);

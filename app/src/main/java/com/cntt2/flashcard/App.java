@@ -2,6 +2,12 @@ package com.cntt2.flashcard;
 
 import android.app.Application;
 
+import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkManager;
+
 import com.cntt2.flashcard.data.local.DatabaseHelper;
 import com.cntt2.flashcard.data.remote.ApiClient;
 import com.cntt2.flashcard.data.remote.ApiService;
@@ -10,6 +16,9 @@ import com.cntt2.flashcard.data.repository.DeskRepository;
 import com.cntt2.flashcard.data.repository.FolderRepository;
 import com.cntt2.flashcard.data.repository.LearningSessionRepository;
 import com.cntt2.flashcard.data.repository.ReviewRepository;
+import com.cntt2.flashcard.sync.SyncWorker;
+
+import java.util.concurrent.TimeUnit;
 
 public class App extends Application {
     private static App instance;
@@ -36,6 +45,19 @@ public class App extends Application {
         cardRepository = new CardRepository(this);
         deskRepository = new DeskRepository(this);
         folderRepository = new FolderRepository(this);
+
+        scheduleSync();
+    }
+
+    private void scheduleSync() {
+        OneTimeWorkRequest syncRequest = new OneTimeWorkRequest.Builder(SyncWorker.class)
+                .setInitialDelay(5, TimeUnit.SECONDS) // Chạy sau 5 giây
+                .build();
+        WorkManager.getInstance(this).enqueueUniqueWork(
+                "sync_work",
+                ExistingWorkPolicy.REPLACE,
+                syncRequest
+        );
     }
 
     public static App getInstance() {
