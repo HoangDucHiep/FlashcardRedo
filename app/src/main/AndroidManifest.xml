@@ -17,7 +17,6 @@
     <uses-permission android:name="android.permission.CAMERA" />
 
     <application
-        android:usesCleartextTraffic="true"
         android:name=".App"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -27,7 +26,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Flashcard"
+        android:usesCleartextTraffic="true"
         tools:targetApi="31">
+        <activity
+            android:name=".ui.activities.MainActivity"
+            android:exported="false" />
         <activity
             android:name=".ui.activities.AddCardActivity"
             android:exported="false" />
@@ -41,7 +44,7 @@
             android:name=".ui.activities.ShowCardActivity"
             android:exported="false" />
         <activity
-            android:name=".ui.activities.TestApiActivity"
+            android:name=".ui.activities.LoginActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

@@ -2,8 +2,11 @@ package com.cntt2.flashcard.data.remote;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Log;
 
 import com.cntt2.flashcard.App;
+import com.cntt2.flashcard.auth.AuthManager;
+import com.cntt2.flashcard.data.remote.dto.LogoutResponse;
 
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -17,12 +20,22 @@ import javax.net.ssl.X509TrustManager;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
 public class ApiClient {
     private static final String BASE_URL = "https://10.0.2.2:7198/";
     private static Retrofit retrofit;
+    private static AuthManager authManager;
+    private static ApiService apiService;
+
+    public static void init(Context context) {
+        authManager = new AuthManager(context);
+        apiService = getApiService();
+    }
 
     public static ApiService getApiService() {
         if (retrofit == null) {
@@ -39,7 +52,6 @@ public class ApiClient {
 
     private static OkHttpClient getUnsafeOkHttpClient() {
         try {
-            // Tạo TrustManager bỏ qua kiểm tra chứng chỉ
             final TrustManager[] trustAllCerts = new TrustManager[]{
                     new X509TrustManager() {
                         @Override
@@ -82,8 +94,7 @@ public class ApiClient {
     private static class AuthInterceptor implements Interceptor {
         @Override
         public okhttp3.Response intercept(Chain chain) throws java.io.IOException {
-            SharedPreferences prefs = App.getInstance().getSharedPreferences("auth_prefs", Context.MODE_PRIVATE);
-            String token = prefs.getString("auth_token", null);
+            String token = authManager.getToken(); // Lấy token từ AuthManager
             Request originalRequest = chain.request();
             if (token != null) {
                 Request newRequest = originalRequest.newBuilder()
@@ -95,13 +106,56 @@ public class ApiClient {
         }
     }
 
-    public static void saveToken(String token) {
-        SharedPreferences prefs = App.getInstance().getSharedPreferences("auth_prefs", Context.MODE_PRIVATE);
-        prefs.edit().putString("auth_token", token).apply();
+    public static void saveAuthData(String token, String username, String userId) {
+        authManager.saveAuthData(token, username, userId);
     }
 
     public static String getToken() {
-        SharedPreferences prefs = App.getInstance().getSharedPreferences("auth_prefs", Context.MODE_PRIVATE);
-        return prefs.getString("auth_token", null);
+        return authManager.getToken();
+    }
+
+    public static String getUserId() {
+        return authManager.getUserId();
+    }
+
+    public static boolean isLoggedIn() {
+        return authManager.isLoggedIn();
+    }
+
+    public static void logout() {
+        authManager.logout();
+    }
+
+    public static void logout(final LogoutCallback callback) {
+        Call<LogoutResponse> call = apiService.logout();
+        call.enqueue(new Callback<LogoutResponse>() {
+            @Override
+            public void onResponse(Call<LogoutResponse> call, Response<LogoutResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Log.d("ApiClient", "Logout successful: " + response.body().getMessage());
+                    authManager.logout(); // Xóa token và thông tin user
+                    callback.onSuccess();
+                } else {
+                    Log.e("ApiClient", "Logout failed: " + response.code() + " - " + response.message());
+                    try {
+                        Log.e("ApiClient", "Error body: " + response.errorBody().string());
+                    } catch (Exception e) {
+                        Log.e("ApiClient", "Error reading error body: " + e.getMessage());
+                    }
+                    callback.onFailure("Logout failed: " + response.message());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<LogoutResponse> call, Throwable t) {
+                Log.e("ApiClient", "Logout error: " + t.getMessage());
+                callback.onFailure("Logout error: " + t.getMessage());
+            }
+        });
+    }
+
+    public interface LogoutCallback {
+        void onSuccess();
+        void onFailure(String error);
     }
 }

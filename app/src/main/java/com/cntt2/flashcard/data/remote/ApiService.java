@@ -6,6 +6,7 @@ import com.cntt2.flashcard.data.remote.dto.FolderDto;
 import com.cntt2.flashcard.data.remote.dto.ImageDto;
 import com.cntt2.flashcard.data.remote.dto.LoginRequest;
 import com.cntt2.flashcard.data.remote.dto.LoginResponse;
+import com.cntt2.flashcard.data.remote.dto.LogoutResponse;
 import com.cntt2.flashcard.data.remote.dto.ReviewDto;
 import com.cntt2.flashcard.data.remote.dto.SessionDto;
 
@@ -30,6 +31,9 @@ public interface ApiService {
 
     @POST("api/auth/login")
     Call<LoginResponse> login(@Body LoginRequest request);
+
+    @POST("api/auth/logout")
+    Call<LogoutResponse> logout();
 
     @GET("api/auth/me")
     Call<UserInfo> getCurrentUser();

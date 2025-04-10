@@ -19,13 +19,15 @@ public class App extends Application {
     private CardRepository cardRepository;
     private ReviewRepository reviewRepository;
     private LearningSessionRepository learningSessionRepository;
-
     private ApiService apiService;
 
     @Override
     public void onCreate() {
         super.onCreate();
         instance = this;
+
+        ApiClient.init(this);
+        apiService = ApiClient.getApiService();
 
         reviewRepository = new ReviewRepository(this);
         learningSessionRepository = new LearningSessionRepository(this);
@@ -34,12 +36,6 @@ public class App extends Application {
         cardRepository = new CardRepository(this);
         deskRepository = new DeskRepository(this);
         folderRepository = new FolderRepository(this);
-        apiService = ApiClient.getApiService();
-        
-
-
-        // Seed the database with initial data
-        //folderRepository.seedDatabase();
     }
 
     public static App getInstance() {
