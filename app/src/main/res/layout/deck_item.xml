@@ -16,7 +16,8 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.092"
-        app:srcCompat="@drawable/deck" />
+        app:srcCompat="@drawable/deck"
+        android:tint="#5c67f2"/>
 
     <TextView
         android:id="@+id/deckName"
@@ -28,6 +29,7 @@
         app:layout_constraintBottom_toBottomOf="@+id/deckIcon"
         app:layout_constraintStart_toEndOf="@+id/deckIcon"
         app:layout_constraintTop_toTopOf="@+id/deckIcon"
-        app:layout_constraintVertical_bias="0.517" />
+        app:layout_constraintVertical_bias="0.517"
+        android:textColor="#FFFFFF"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

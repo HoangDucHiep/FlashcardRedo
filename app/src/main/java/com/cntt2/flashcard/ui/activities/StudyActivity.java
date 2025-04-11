@@ -339,7 +339,7 @@ public class StudyActivity extends AppCompatActivity {
             content = "";
         }
         return "<html><head><meta name='viewport' content='width=device-width, initial-scale=1.0' />"
-                + "<style>body{font-size:16px;text-align:center;word-wrap:break-word;max-width:100%; margin: 0 auto; max-height: 2000px; overflow-y: scroll;} img{max-width:100%; height:auto;}</style></head><body>"
+                + "<style>body{ background-color:#382a79; color:white;font-size:16px;text-align:center;word-wrap:break-word;max-width:100%; margin: 0 auto; max-height: 2000px; overflow-y: scroll;} img{max-width:100%; height:auto;}</style></head><body>"
                 + content + "</body></html>";
     }
 

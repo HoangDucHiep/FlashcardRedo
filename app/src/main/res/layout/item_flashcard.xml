@@ -14,7 +14,8 @@
         android:layout_height="match_parent"
         android:gravity="center"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:padding="24dp"
+        android:background="#434eaa">
 
         <WebView
             android:id="@+id/WebViewCardItemFront"
@@ -23,14 +24,16 @@
             android:layout_marginBottom="16dp"
             android:fadeScrollbars="false"
             android:overScrollMode="never"
-            android:scrollbars="vertical" />
+            android:scrollbars="vertical"
+            android:background="#382a79"/>
 
         <WebView
             android:id="@+id/WebViewCardItemBack"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:overScrollMode="never"
-            android:scrollbars="vertical" />
+            android:scrollbars="vertical"
+            android:background="#382a79"/>
 
     </LinearLayout>
 

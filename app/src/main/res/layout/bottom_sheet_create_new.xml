@@ -4,7 +4,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="#1c1941">
 
     <!-- Handle -->
     <View
@@ -21,7 +22,8 @@
         android:text="Create New"
         android:textSize="24sp"
         android:textStyle="bold"
-        android:layout_marginBottom="8dp" />
+        android:layout_marginBottom="8dp"
+        android:textColor="#FFFFFF"/>
 
     <!-- Subtitle -->
     <TextView
@@ -30,7 +32,8 @@
         android:text="A well organized structure can help you study."
         android:textSize="16sp"
         android:textColor="#757575"
-        android:layout_marginBottom="16dp" />
+        android:layout_marginBottom="16dp"
+        android:textColorHint="#575a65"/>
 
     <!-- Divider -->
     <View
@@ -63,7 +66,8 @@
             android:layout_height="wrap_content"
             android:text="Folder"
             android:textSize="18sp"
-            android:layout_gravity="center_vertical"/>
+            android:layout_gravity="center_vertical"
+            android:textColor="#FFFFFF"/>
     </LinearLayout>
 
     <!-- Deck Option -->
@@ -90,7 +94,8 @@
             android:layout_height="wrap_content"
             android:text="Deck"
             android:textSize="18sp"
-            android:layout_gravity="center_vertical"/>
+            android:layout_gravity="center_vertical"
+            android:textColor="#FFFFFF"/>
     </LinearLayout>
 
 </LinearLayout>
