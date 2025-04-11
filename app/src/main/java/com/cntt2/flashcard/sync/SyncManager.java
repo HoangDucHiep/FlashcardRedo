@@ -75,6 +75,8 @@ public class SyncManager {
                 if (response.isSuccessful() && response.body() != null) {
                     Log.d(TAG, "Successfully pulled " + response.body().size() + " folders from server");
                     List<GetFolderDto> serverFolders = response.body();
+
+
                     for (GetFolderDto serverFolder : serverFolders) {
                         if (serverFolder.getId() == null) {
                             Log.e(TAG, "Server folder has null ID, skipping: " + serverFolder.getName());
@@ -543,7 +545,13 @@ public class SyncManager {
 
         int totalPending = pendingCreateDesks.size() + pendingUpdateDesks.size() + pendingDeleteDesks.size();
         if (totalPending == 0) {
-            callback.onSuccess();
+            // Kiểm tra nếu còn desk pending_update sau khi xử lý hết
+            if (deskRepository.getPendingDesks("pending_update").isEmpty()) {
+                callback.onSuccess();
+            } else {
+                Log.d(TAG, "Desks still pending_update, triggering another sync...");
+                syncDesks(callback); // Gọi lại syncDesks để xử lý pending_update
+            }
             return;
         }
 
@@ -553,13 +561,19 @@ public class SyncManager {
             if (localDesk.getServerId() != null) {
                 Log.d(TAG, "Desk " + localDesk.getName() + " already has serverId " + localDesk.getServerId() + ", skipping create");
                 deskRepository.updateSyncStatus(localDesk.getId(), "synced");
+                completedTasks[0]++;
+                if (completedTasks[0] == totalPending) {
+                    checkAndResyncDesks(callback);
+                }
                 continue;
             }
             createDeskOnServer(localDesk, new SyncCallback() {
                 @Override
                 public void onSuccess() {
                     completedTasks[0]++;
-                    if (completedTasks[0] == totalPending) callback.onSuccess();
+                    if (completedTasks[0] == totalPending) {
+                        checkAndResyncDesks(callback);
+                    }
                 }
 
                 @Override
@@ -574,7 +588,9 @@ public class SyncManager {
                 @Override
                 public void onSuccess() {
                     completedTasks[0]++;
-                    if (completedTasks[0] == totalPending) callback.onSuccess();
+                    if (completedTasks[0] == totalPending) {
+                        checkAndResyncDesks(callback);
+                    }
                 }
 
                 @Override
@@ -589,7 +605,9 @@ public class SyncManager {
                 @Override
                 public void onSuccess() {
                     completedTasks[0]++;
-                    if (completedTasks[0] == totalPending) callback.onSuccess();
+                    if (completedTasks[0] == totalPending) {
+                        checkAndResyncDesks(callback);
+                    }
                 }
 
                 @Override
@@ -600,12 +618,24 @@ public class SyncManager {
         }
     }
 
+    // Helper method để kiểm tra và gọi lại sync desks nếu cần
+    private void checkAndResyncDesks(SyncCallback callback) {
+        List<Desk> remainingPendingUpdates = deskRepository.getPendingDesks("pending_update");
+        if (remainingPendingUpdates.isEmpty()) {
+            callback.onSuccess();
+        } else {
+            Log.d(TAG, "Found " + remainingPendingUpdates.size() + " desks still pending_update, triggering another sync...");
+            syncDesks(callback);
+        }
+    }
+
+
     private void createDeskOnServer(final Desk localDesk, final SyncCallback callback) {
         Log.d(TAG, "Creating desk on server: " + localDesk.getName());
         DeskDto deskDto = new DeskDto();
         deskDto.setName(localDesk.getName());
-        deskDto.setFolderId(idMappingRepository.getServerIdByLocalId(localDesk.getFolderId(), "folder") != null ?
-                idMappingRepository.getServerIdByLocalId(localDesk.getFolderId(), "folder") : null);
+        String folderServerId = idMappingRepository.getServerIdByLocalId(localDesk.getFolderId(), "folder");
+        deskDto.setFolderId(folderServerId);
         deskDto.setPublic(localDesk.isPublic());
 
         Date createdAt, lastModified;
@@ -640,7 +670,13 @@ public class SyncManager {
                     DeskDto serverDesk = response.body();
                     localDesk.setServerId(serverDesk.getId());
                     localDesk.setLastModified(dateFormat.format(serverDesk.getLastModified()));
-                    deskRepository.updateSyncStatus(localDesk.getId(), "synced");
+                    // Nếu localDesk có folderId nhưng server không có, đánh dấu pending_update
+                    if (localDesk.getFolderId() != null && folderServerId == null) {
+                        deskRepository.updateSyncStatus(localDesk.getId(), "pending_update");
+                        Log.d(TAG, "Desk " + localDesk.getName() + " marked as pending_update due to missing folder serverId");
+                    } else {
+                        deskRepository.updateSyncStatus(localDesk.getId(), "synced");
+                    }
                     deskRepository.insertIdMapping(localDesk.getId(), serverDesk.getId());
                     Log.d(TAG, "Created desk on server with serverId: " + serverDesk.getId());
                     callback.onSuccess();

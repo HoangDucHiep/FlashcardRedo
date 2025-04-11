@@ -80,7 +80,7 @@ public class Desk {
         this.id = id;
     }
 
-    public int getFolderId() {
+    public Integer getFolderId() {
         return folderId;
     }
 
