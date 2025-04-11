@@ -21,12 +21,24 @@ public class SyncWorker extends Worker {
         syncManager.syncFolders(new SyncManager.SyncCallback() {
             @Override
             public void onSuccess() {
-                Log.d(TAG, "Sync completed successfully");
+                Log.d(TAG, "Folder sync completed successfully");
+                // Sau khi Folder hoàn tất, đồng bộ Desk
+                syncManager.syncDesks(new SyncManager.SyncCallback() {
+                    @Override
+                    public void onSuccess() {
+                        Log.d(TAG, "Desk sync completed successfully");
+                    }
+
+                    @Override
+                    public void onFailure(String error) {
+                        Log.e(TAG, "Desk sync failed: " + error);
+                    }
+                });
             }
 
             @Override
             public void onFailure(String error) {
-                Log.e(TAG, "Sync failed: " + error);
+                Log.e(TAG, "Folder sync failed: " + error);
             }
         });
         return Result.success();
