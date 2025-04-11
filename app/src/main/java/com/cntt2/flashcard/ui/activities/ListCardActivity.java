@@ -59,6 +59,7 @@ public class ListCardActivity extends AppCompatActivity {
             FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
             transaction.replace(R.id.fragmentContainer, cardsFragment);
             transaction.commit();
+            btnAdd.setVisibility(View.VISIBLE);
         });
 
         btnThongKe.setOnClickListener(view -> {
@@ -69,6 +70,7 @@ public class ListCardActivity extends AppCompatActivity {
             FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
             transaction.replace(R.id.fragmentContainer, statisticsFragment);
             transaction.commit();
+            btnAdd.setVisibility(View.GONE);
         });
 
 
