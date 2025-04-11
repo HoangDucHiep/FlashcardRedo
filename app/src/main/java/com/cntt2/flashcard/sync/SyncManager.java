@@ -166,24 +166,42 @@ public class SyncManager {
 
         Log.d(TAG, "Pending create: " + pendingCreateFolders.size() + ", update: " + pendingUpdateFolders.size() + ", delete: " + pendingDeleteFolders.size());
 
+        int totalPending = pendingCreateFolders.size() + pendingUpdateFolders.size() + pendingDeleteFolders.size();
+        if (totalPending == 0) {
+            // Kiểm tra nếu còn folder pending_update sau khi xử lý hết
+            if (folderRepository.getPendingFolders("pending_update").isEmpty()) {
+                callback.onSuccess();
+            } else {
+                Log.d(TAG, "Folders still pending_update, triggering another sync...");
+                syncFolders(callback); // Gọi lại syncFolders để xử lý pending_update
+            }
+            return;
+        }
 
+        final int[] completedTasks = {0};
 
         for (Folder localFolder : pendingCreateFolders) {
-            // Chỉ tạo folder trên server nếu chưa có serverId
             if (localFolder.getServerId() != null) {
                 Log.d(TAG, "Folder " + localFolder.getName() + " already has serverId " + localFolder.getServerId() + ", skipping create");
                 folderRepository.updateSyncStatus(localFolder.getId(), "synced");
+                completedTasks[0]++;
+                if (completedTasks[0] == totalPending) {
+                    checkAndResync(callback);
+                }
                 continue;
             }
             createFolderOnServer(localFolder, new SyncCallback() {
                 @Override
                 public void onSuccess() {
-                    // Không cần làm gì thêm ở đây
+                    completedTasks[0]++;
+                    if (completedTasks[0] == totalPending) {
+                        checkAndResync(callback);
+                    }
                 }
 
                 @Override
                 public void onFailure(String error) {
-                    Log.e(TAG, "Failed to create folder: " + error);
+                    callback.onFailure(error);
                 }
             });
         }
@@ -192,12 +210,15 @@ public class SyncManager {
             updateFolderOnServer(localFolder, new SyncCallback() {
                 @Override
                 public void onSuccess() {
-                    // Không cần làm gì thêm ở đây
+                    completedTasks[0]++;
+                    if (completedTasks[0] == totalPending) {
+                        checkAndResync(callback);
+                    }
                 }
 
                 @Override
                 public void onFailure(String error) {
-                    Log.e(TAG, "Failed to update folder: " + error);
+                    callback.onFailure(error);
                 }
             });
         }
@@ -206,12 +227,15 @@ public class SyncManager {
             deleteFolderOnServer(localFolder, new SyncCallback() {
                 @Override
                 public void onSuccess() {
-                    // Không cần làm gì thêm ở đây
+                    completedTasks[0]++;
+                    if (completedTasks[0] == totalPending) {
+                        checkAndResync(callback);
+                    }
                 }
 
                 @Override
                 public void onFailure(String error) {
-                    Log.e(TAG, "Failed to delete folder: " + error);
+                    callback.onFailure(error);
                 }
             });
         }
@@ -219,6 +243,15 @@ public class SyncManager {
         callback.onSuccess();
     }
 
+    private void checkAndResync(SyncCallback callback) {
+        List<Folder> remainingPendingUpdates = folderRepository.getPendingFolders("pending_update");
+        if (remainingPendingUpdates.isEmpty()) {
+            callback.onSuccess();
+        } else {
+            Log.d(TAG, "Found " + remainingPendingUpdates.size() + " folders still pending_update, triggering another sync...");
+            syncFolders(callback);
+        }
+    }
 
     private void createFolderOnServer(final Folder localFolder, final SyncCallback callback) {
         Log.d(TAG, "Creating folder on server: " + localFolder.getName());
