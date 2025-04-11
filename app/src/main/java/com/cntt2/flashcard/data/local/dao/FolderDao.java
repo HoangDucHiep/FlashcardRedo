@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class FolderDao {
     private DatabaseHelper dbHelper;
@@ -107,7 +108,7 @@ public class FolderDao {
         return folders;
     }
 
-    @SuppressLint("Range")
+    @SuppressLint({"Range", "NewApi"})
     public List<Folder> getAllNestedFolders() {
         List<Folder> allFolders = new ArrayList<>();
         Map<Integer, Folder> folderMap = new HashMap<>();
@@ -130,6 +131,9 @@ public class FolderDao {
         }
         cursor.close();
 
+        // Remove folders with sync status "pending_delete"
+        allFolders.removeIf(folder -> "pending_delete".equals(folder.getSyncStatus()));
+
         // Build the hierarchy
         for (Folder folder : allFolders) {
             if (folder.getParentFolderId() != null) {
@@ -139,7 +143,7 @@ public class FolderDao {
                 }
             }
             // Load desks for each folder
-            folder.setDesks(deskDao.getDesksByFolderId(folder.getId()));
+            folder.setDesks(deskDao.getDesksByFolderId(folder.getId()).stream().filter(desk -> !desk.getSyncStatus().equals("pending_delete")).toList());
         }
 
         // Filter root folders
