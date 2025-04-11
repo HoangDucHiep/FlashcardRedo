@@ -133,6 +133,7 @@ public class FolderDao {
 
         // Remove folders with sync status "pending_delete"
         allFolders.removeIf(folder -> "pending_delete".equals(folder.getSyncStatus()));
+        allFolders = new ArrayList<>(allFolders);
 
         // Build the hierarchy
         for (Folder folder : allFolders) {

@@ -109,7 +109,10 @@ public class Folder {
     }
 
     public void setSubFolders(List<Folder> subFolders) {
-        this.subFolders = subFolders;
+        this.subFolders.clear(); // Xóa danh sách cũ
+        if (subFolders != null) {
+            this.subFolders.addAll(subFolders); // Thêm vào danh sách mutable
+        }
     }
 
     public void addSubFolder(Folder subFolder) {
@@ -121,10 +124,15 @@ public class Folder {
     }
 
     public void setDesks(List<Desk> desks) {
-        this.desks = desks;
+        this.desks.clear(); // Xóa danh sách cũ
+        if (desks != null) {
+            this.desks.addAll(desks); // Thêm vào danh sách mutable
+        }
     }
 
     public void addDesk(Desk desk) {
-        this.desks.add(desk);
+        if (desk != null) {
+            this.desks.add(desk); // Dòng 128: Đảm bảo desks là ArrayList
+        }
     }
 }

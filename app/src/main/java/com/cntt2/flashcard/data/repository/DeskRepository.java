@@ -8,6 +8,7 @@ import com.cntt2.flashcard.data.local.dao.IdMappingDao;
 import com.cntt2.flashcard.model.Desk;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -67,7 +68,7 @@ public class DeskRepository {
     public List<Desk> getDesksByFolderId(int folderId) {
         List<Desk> desks = deskDao.getDesksByFolderId(folderId);
         desks.removeIf(desk -> "pending_delete".equals(desk.getSyncStatus()));
-        return desks;
+        return new ArrayList<>(desks);
     }
 
     public void updateDesk(Desk desk) {
