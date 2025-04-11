@@ -68,6 +68,24 @@ public class FolderDao {
         db.close();
     }
 
+    public Folder getFolderById(int id) {
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        Cursor cursor = db.query("folders", null, "id = ?", new String[]{String.valueOf(id)}, null, null, null);
+        Folder folder = null;
+        if (cursor != null && cursor.moveToFirst()) {
+            folder = new Folder();
+            folder.setId(cursor.getInt(cursor.getColumnIndexOrThrow("id")));
+            folder.setParentFolderId(cursor.isNull(cursor.getColumnIndexOrThrow("parent_folder_id")) ? null : cursor.getInt(cursor.getColumnIndexOrThrow("parent_folder_id")));
+            folder.setName(cursor.getString(cursor.getColumnIndexOrThrow("name")));
+            folder.setCreatedAt(cursor.getString(cursor.getColumnIndexOrThrow("created_at")));
+            folder.setLastModified(cursor.getString(cursor.getColumnIndexOrThrow("last_modified")));
+            folder.setSyncStatus(cursor.getString(cursor.getColumnIndexOrThrow("sync_status")));
+            cursor.close();
+        }
+        db.close();
+        return folder;
+    }
+
     public List<Folder> getAllFolders() {
         List<Folder> folders = new ArrayList<>();
         SQLiteDatabase db = dbHelper.getReadableDatabase();

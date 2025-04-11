@@ -11,28 +11,49 @@ import com.cntt2.flashcard.model.Folder;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.TimeZone;
 
 public class FolderRepository {
     private final FolderDao folderDao;
     private final DeskRepository deskRepository;
     private final IdMappingDao idMappingDao;
+    private final SimpleDateFormat dateFormat;
 
     public FolderRepository(Context context) {
         folderDao = new FolderDao(context);
         deskRepository = App.getInstance().getDeskRepository();
         idMappingDao = new IdMappingDao(context);
+        dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
+        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
     }
 
     public long insertFolder(Folder folder) {
-        folder.setLastModified(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(new Date()));
-        folder.setSyncStatus("pending_create");
+        String currentTime = dateFormat.format(new Date());
+        folder.setLastModified(currentTime);
+        if (folder.getCreatedAt() == null) {
+            folder.setCreatedAt(currentTime);
+        }
+        if (folder.getServerId() == null) {
+            folder.setSyncStatus("pending_create");
+        } else {
+            folder.setSyncStatus("synced");
+        }
         return folderDao.insertFolder(folder);
     }
 
     public void updateFolder(Folder folder) {
-        folder.setLastModified(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(new Date()));
-        folder.setSyncStatus("pending_update");
-        folderDao.updateFolder(folder);
+        Folder existingFolder = folderDao.getFolderById(folder.getId());
+        if (existingFolder != null) {
+            boolean hasChanges = !existingFolder.getName().equals(folder.getName()) ||
+                    !Objects.equals(existingFolder.getParentFolderId(), folder.getParentFolderId());
+            if (hasChanges) {
+                folder.setLastModified(dateFormat.format(new Date()));
+                folder.setSyncStatus("pending_update");
+                folderDao.updateFolder(folder);
+            }
+        }
     }
 
     public void deleteFolder(Folder folder) {

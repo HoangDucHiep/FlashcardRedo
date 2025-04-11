@@ -9,13 +9,16 @@ import com.cntt2.flashcard.data.remote.ApiService;
 import com.cntt2.flashcard.data.remote.dto.GetFolderDto;
 import com.cntt2.flashcard.data.remote.dto.PostFolderDto;
 import com.cntt2.flashcard.data.repository.FolderRepository;
+import com.cntt2.flashcard.data.repository.IdMappingRepository;
 import com.cntt2.flashcard.model.Folder;
+import com.cntt2.flashcard.model.IdMapping;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.TimeZone;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -28,13 +31,18 @@ public class SyncManager {
     private final SimpleDateFormat dateFormat; // Định dạng gửi lên API
     private final SimpleDateFormat localDateFormat; // Định dạng từ local
     private final SimpleDateFormat serverDateFormat; // Định dạng từ server
+    private final IdMappingRepository idMappingRepository;
 
     public SyncManager(Context context) {
         this.folderRepository = App.getInstance().getFolderRepository();
         this.apiService = ApiClient.getApiService();
+        idMappingRepository = new IdMappingRepository(context);
         this.dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
-        this.localDateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-        this.serverDateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        this.dateFormat.setTimeZone(TimeZone.getTimeZone("UTC")); // Đặt múi giờ là UTC
+        this.localDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
+        this.localDateFormat.setTimeZone(TimeZone.getTimeZone("UTC")); // Đặt múi giờ là UTC
+        this.serverDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSSS", Locale.getDefault());
+        this.serverDateFormat.setTimeZone(TimeZone.getTimeZone("UTC")); // Đặt múi giờ là UTC
     }
 
     public void syncFolders(final SyncCallback callback) {
@@ -52,6 +60,7 @@ public class SyncManager {
         });
     }
 
+
     private void pullFoldersFromServer(final SyncCallback callback) {
         Log.d(TAG, "Pulling folders from server...");
         apiService.getUserFolders().enqueue(new Callback<List<GetFolderDto>>() {
@@ -61,10 +70,9 @@ public class SyncManager {
                     Log.d(TAG, "Successfully pulled " + response.body().size() + " folders from server");
                     List<GetFolderDto> serverFolders = response.body();
                     for (GetFolderDto serverFolder : serverFolders) {
-                        // Kiểm tra serverId có null không
                         if (serverFolder.getId() == null) {
                             Log.e(TAG, "Server folder has null ID, skipping: " + serverFolder.getName());
-                            continue; // Bỏ qua folder này
+                            continue;
                         }
 
                         Integer localId = folderRepository.getLocalIdByServerId(serverFolder.getId());
@@ -80,14 +88,18 @@ public class SyncManager {
                         }
 
                         try {
-                            // Sử dụng trực tiếp Date từ serverFolder
                             Date serverLastModified = serverFolder.getLastModified();
                             if (serverLastModified == null) {
                                 Log.e(TAG, "Server folder has null LastModified, skipping: " + serverFolder.getName());
-                                continue; // Bỏ qua folder này nếu LastModified là null
+                                continue;
                             }
 
                             if (localFolder == null) {
+                                if (folderRepository.getLocalIdByServerId(serverFolder.getId()) != null) {
+                                    Log.d(TAG, "Folder with serverId " + serverFolder.getId() + " already exists, skipping");
+                                    continue;
+                                }
+
                                 Folder newFolder = new Folder();
                                 newFolder.setServerId(serverFolder.getId());
                                 newFolder.setParentFolderId(serverFolder.getParentFolderId() != null ?
@@ -109,6 +121,11 @@ public class SyncManager {
                                     localFolder.setSyncStatus("synced");
                                     folderRepository.updateFolder(localFolder);
                                     Log.d(TAG, "Updated folder with localId: " + localFolder.getId());
+                                } else if (localLastModified.after(serverLastModified) && !localFolder.getSyncStatus().equals("pending_update")) {
+                                    // Nếu local mới hơn server, đánh dấu folder là pending_update
+                                    localFolder.setSyncStatus("pending_update");
+                                    folderRepository.updateFolder(localFolder);
+                                    Log.d(TAG, "Local folder is newer, marked as pending_update: " + localFolder.getId());
                                 }
                             }
                         } catch (ParseException e) {
@@ -144,50 +161,116 @@ public class SyncManager {
         Log.d(TAG, "Pending create: " + pendingCreateFolders.size() + ", update: " + pendingUpdateFolders.size() + ", delete: " + pendingDeleteFolders.size());
 
         for (Folder localFolder : pendingCreateFolders) {
-            createFolderOnServer(localFolder, callback);
+            // Chỉ tạo folder trên server nếu chưa có serverId
+            if (localFolder.getServerId() != null) {
+                Log.d(TAG, "Folder " + localFolder.getName() + " already has serverId " + localFolder.getServerId() + ", skipping create");
+                folderRepository.updateSyncStatus(localFolder.getId(), "synced");
+                continue;
+            }
+            createFolderOnServer(localFolder, new SyncCallback() {
+                @Override
+                public void onSuccess() {
+                    // Không cần làm gì thêm ở đây
+                }
+
+                @Override
+                public void onFailure(String error) {
+                    Log.e(TAG, "Failed to create folder: " + error);
+                }
+            });
         }
 
         for (Folder localFolder : pendingUpdateFolders) {
-            updateFolderOnServer(localFolder, callback);
+            updateFolderOnServer(localFolder, new SyncCallback() {
+                @Override
+                public void onSuccess() {
+                    // Không cần làm gì thêm ở đây
+                }
+
+                @Override
+                public void onFailure(String error) {
+                    Log.e(TAG, "Failed to update folder: " + error);
+                }
+            });
         }
 
         for (Folder localFolder : pendingDeleteFolders) {
-            deleteFolderOnServer(localFolder, callback);
+            deleteFolderOnServer(localFolder, new SyncCallback() {
+                @Override
+                public void onSuccess() {
+                    // Không cần làm gì thêm ở đây
+                }
+
+                @Override
+                public void onFailure(String error) {
+                    Log.e(TAG, "Failed to delete folder: " + error);
+                }
+            });
         }
 
         callback.onSuccess();
     }
 
+
     private void createFolderOnServer(final Folder localFolder, final SyncCallback callback) {
         Log.d(TAG, "Creating folder on server: " + localFolder.getName());
 
-        // Create PostFolderDto object
         PostFolderDto postFolderDto = new PostFolderDto();
-        postFolderDto.setName(localFolder.getName()); // Set the folder name (e.g., "Sec test")
+        postFolderDto.setName(localFolder.getName());
         postFolderDto.setParentFolderId(localFolder.getParentFolderId() != null ?
                 getServerIdFromLocalId(localFolder.getParentFolderId()) : null);
 
-        // Parse and set dates
+        Date createdAt;
+        Date lastModified;
         try {
-            Date createdAt = localDateFormat.parse(localFolder.getCreatedAt());
-            Date lastModified = localDateFormat.parse(localFolder.getLastModified());
-            postFolderDto.setCreatedAt(createdAt);
-            postFolderDto.setLastModified(lastModified);
+            // Try parsing with the expected format
+            createdAt = localDateFormat.parse(localFolder.getCreatedAt());
+            lastModified = localDateFormat.parse(localFolder.getLastModified());
         } catch (ParseException e) {
-            Log.e(TAG, "Error parsing date for folder " + localFolder.getName() + ": " + e.getMessage());
-            callback.onFailure("Error parsing date: " + e.getMessage());
-            return;
+            // Fallback to parsing "yyyy-MM-dd" format
+            SimpleDateFormat fallbackFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            fallbackFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+            try {
+                createdAt = fallbackFormat.parse(localFolder.getCreatedAt());
+                lastModified = fallbackFormat.parse(localFolder.getLastModified());
+                // Update local folder to include time component for consistency
+                localFolder.setCreatedAt(localDateFormat.format(createdAt));
+                localFolder.setLastModified(localDateFormat.format(lastModified));
+                folderRepository.updateFolder(localFolder);
+                Log.d(TAG, "Updated folder " + localFolder.getName() + " with full date format");
+            } catch (ParseException ex) {
+                Log.e(TAG, "Error parsing date for folder " + localFolder.getName() + ": " + ex.getMessage());
+                callback.onFailure("Error parsing date: " + ex.getMessage());
+                return;
+            }
         }
 
-        // Make the API call
-        apiService.createFolder(postFolderDto).enqueue(new Callback<GetFolderDto>() { // Phản hồi là GetFolderDto
+        postFolderDto.setCreatedAt(createdAt);
+        postFolderDto.setLastModified(lastModified);
+
+        apiService.createFolder(postFolderDto).enqueue(new Callback<GetFolderDto>() {
             @Override
             public void onResponse(Call<GetFolderDto> call, Response<GetFolderDto> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     GetFolderDto serverFolder = response.body();
                     localFolder.setServerId(serverFolder.getId());
+                    localFolder.setLastModified(dateFormat.format(serverFolder.getLastModified())); // Cập nhật LastModified từ server
                     folderRepository.updateSyncStatus(localFolder.getId(), "synced");
-                    folderRepository.insertIdMapping(localFolder.getId(), serverFolder.getId());
+
+                    Integer existingLocalId = folderRepository.getLocalIdByServerId(serverFolder.getId());
+                    if (existingLocalId == null) {
+                        String existingServerId = idMappingRepository.getServerIdByLocalId(localFolder.getId(), "folder");
+                        if (existingServerId != null) {
+                            IdMapping mapping = new IdMapping(localFolder.getId(), serverFolder.getId(), "folder");
+                            idMappingRepository.updateIdMapping(mapping);
+                            Log.d(TAG, "Updated id_mapping for localId: " + localFolder.getId() + " with new serverId: " + serverFolder.getId());
+                        } else {
+                            folderRepository.insertIdMapping(localFolder.getId(), serverFolder.getId());
+                        }
+                    } else {
+                        Log.d(TAG, "Mapping already exists for serverId: " + serverFolder.getId() + ", skipping insert");
+                    }
+
                     Log.d(TAG, "Created folder on server with serverId: " + serverFolder.getId());
                     callback.onSuccess();
                 } else {
@@ -209,30 +292,52 @@ public class SyncManager {
         });
     }
 
+
     private void updateFolderOnServer(final Folder localFolder, final SyncCallback callback) {
         Log.d(TAG, "Updating folder on server: " + localFolder.getName());
-        PostFolderDto postFolderDto = new PostFolderDto(); // Sử dụng PostFolderDto cho update
+
+        String serverId = idMappingRepository.getServerIdByLocalId(localFolder.getId(), "folder");
+
+        PostFolderDto postFolderDto = new PostFolderDto();
         postFolderDto.setName(localFolder.getName());
         postFolderDto.setParentFolderId(localFolder.getParentFolderId() != null ?
                 getServerIdFromLocalId(localFolder.getParentFolderId()) : null);
 
+        Date createdAt;
+        Date lastModified;
         try {
-            Date createdAt = localDateFormat.parse(localFolder.getCreatedAt());
-            Date lastModified = localDateFormat.parse(localFolder.getLastModified());
-            postFolderDto.setCreatedAt(createdAt);
-            postFolderDto.setLastModified(lastModified);
+            createdAt = localDateFormat.parse(localFolder.getCreatedAt());
+            lastModified = localDateFormat.parse(localFolder.getLastModified());
         } catch (ParseException e) {
-            Log.e(TAG, "Error parsing date for folder " + localFolder.getName() + ": " + e.getMessage());
-            callback.onFailure("Error parsing date: " + e.getMessage());
-            return;
+            // Fallback to parsing "yyyy-MM-dd" format
+            SimpleDateFormat fallbackFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            fallbackFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+            try {
+                createdAt = fallbackFormat.parse(localFolder.getCreatedAt());
+                lastModified = fallbackFormat.parse(localFolder.getLastModified());
+                // Update local folder to include time component for consistency
+                localFolder.setCreatedAt(localDateFormat.format(createdAt));
+                localFolder.setLastModified(localDateFormat.format(lastModified));
+                folderRepository.updateFolder(localFolder);
+                Log.d(TAG, "Updated folder " + localFolder.getName() + " with full date format");
+            } catch (ParseException ex) {
+                Log.e(TAG, "Error parsing date for folder " + localFolder.getName() + ": " + ex.getMessage());
+                callback.onFailure("Error parsing date: " + ex.getMessage());
+                return;
+            }
         }
 
-        apiService.updateFolder(localFolder.getServerId(), postFolderDto).enqueue(new Callback<Void>() {
+        postFolderDto.setCreatedAt(createdAt);
+        postFolderDto.setLastModified(lastModified);
+
+
+
+        apiService.updateFolder(serverId, postFolderDto).enqueue(new Callback<Void>() {
             @Override
             public void onResponse(Call<Void> call, Response<Void> response) {
                 if (response.isSuccessful()) {
                     folderRepository.updateSyncStatus(localFolder.getId(), "synced");
-                    Log.d(TAG, "Updated folder on server with serverId: " + localFolder.getServerId());
+                    Log.d(TAG, "Updated folder on server with serverId: " + serverId);
                     callback.onSuccess();
                 } else {
                     Log.e(TAG, "Failed to update folder: " + response.code() + " - " + response.message());
@@ -254,20 +359,20 @@ public class SyncManager {
     }
 
     private void deleteFolderOnServer(final Folder localFolder, final SyncCallback callback) {
+        String serverId = idMappingRepository.getServerIdByLocalId(localFolder.getId(), "folder");
         Log.d(TAG, "Deleting folder on server: " + localFolder.getName());
-        if (localFolder.getServerId() == null) {
+        if (serverId == null) {
             folderRepository.deleteFolderConfirmed(localFolder.getId());
             Log.d(TAG, "Deleted local folder with no serverId: " + localFolder.getId());
             callback.onSuccess();
             return;
         }
-
-        apiService.deleteFolder(localFolder.getServerId()).enqueue(new Callback<Void>() {
+        apiService.deleteFolder(serverId).enqueue(new Callback<Void>() {
             @Override
             public void onResponse(Call<Void> call, Response<Void> response) {
                 if (response.isSuccessful()) {
                     folderRepository.deleteFolderConfirmed(localFolder.getId());
-                    Log.d(TAG, "Deleted folder on server with serverId: " + localFolder.getServerId());
+                    Log.d(TAG, "Deleted folder on server with serverId: " + serverId);
                     callback.onSuccess();
                 } else {
                     Log.e(TAG, "Failed to delete folder: " + response.code() + " - " + response.message());
@@ -290,6 +395,9 @@ public class SyncManager {
 
     private String getServerIdFromLocalId(int localId) {
         List<Folder> allFolders = folderRepository.getAllFolders();
+        for (Folder folder : allFolders) {
+            Log.d("FolderData", "Folder: " + folder.getName() + ", CreatedAt: " + folder.getCreatedAt() + ", LastModified: " + folder.getLastModified());
+        }
         for (Folder folder : allFolders) {
             if (folder.getId() == localId) {
                 return folder.getServerId();
