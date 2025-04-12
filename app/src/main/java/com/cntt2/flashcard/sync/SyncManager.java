@@ -730,7 +730,9 @@ public class SyncManager {
                         if (!pendingCards.isEmpty()) {
                             Log.d(TAG, "Pending cards remain: " + pendingCards.size());
                             for (Card card : pendingCards) {
-                                Log.d(TAG, "Pending card - ID: " + card.getId() + ", ServerId: " + card.getServerId() + ", SyncStatus: " + card.getSyncStatus());
+                                Log.d(TAG, "Pending card - ID: " + card.getId() +
+                                        ", DeskId: " + card.getDeskId() +
+                                        ", SyncStatus: " + card.getSyncStatus());
                             }
                             syncCards(callback);
                         } else {
@@ -778,8 +780,10 @@ public class SyncManager {
                 @Override
                 public void onResponse(Call<List<CardDto>> call, Response<List<CardDto>> response) {
                     if (!response.isSuccessful() || response.body() == null) {
-                        Log.e(TAG, "Failed to pull cards for deskId: " + serverDeskId + ", code: " + response.code());
-                        callback.onFailure("Failed to pull cards: " + response.message());
+                        Log.e(TAG, "Failed to pull cards for deskId: " + serverDeskId +
+                                ", code: " + response.code());
+                        completedDesks[0]++;
+                        if (completedDesks[0] == totalDesks) callback.onSuccess();
                         return;
                     }
 
@@ -787,32 +791,39 @@ public class SyncManager {
                     Log.d(TAG, "Successfully pulled " + serverCards.size() + " cards for deskId: " + serverDeskId);
 
                     for (CardDto serverCard : serverCards) {
-                        if (serverCard.getId() == null || serverCard.getLastModified() == null) {
+                        if (serverCard.getId() == null) {
                             Log.e(TAG, "Invalid server card data, skipping for deskId: " + serverDeskId);
                             continue;
                         }
 
-                        Integer localId = idMappingRepository.getLocalIdByServerId(serverCard.getId(), "card");
+                        String serverCardId = serverCard.getId();
+                        Integer localId = idMappingRepository.getLocalIdByServerId(serverCardId, "card");
                         Card localCard = localId != null ? cardRepository.getCardById(localId) : null;
 
                         try {
-                            Date serverLastModified = truncateToMinute(serverCard.getLastModified());
-                            String formattedLastModified = dateFormat.format(serverCard.getLastModified());
+                            // Lấy trực tiếp String từ serverCard
+                            String serverLastModifiedStr = String.valueOf(serverCard.getLastModified());
+                            String serverCreatedAtStr = String.valueOf(serverCard.getCreatedAt());
 
                             if (localCard == null) {
                                 Card newCard = new Card();
-                                newCard.setServerId(serverCard.getId());
+                                newCard.setServerId(serverCardId);
                                 newCard.setDeskId(desk.getId());
                                 newCard.setFront(serverCard.getFront());
                                 newCard.setBack(serverCard.getBack());
-                                newCard.setCreatedAt(dateFormat.format(serverCard.getCreatedAt()));
-                                newCard.setLastModified(formattedLastModified);
+                                newCard.setCreatedAt(serverCreatedAtStr); // Truyền String trực tiếp
+                                newCard.setLastModified(serverLastModifiedStr); // Truyền String trực tiếp
                                 newCard.setSyncStatus("synced");
                                 long newLocalId = cardRepository.insertCard(newCard);
-                                idMappingRepository.insertIdMapping(new IdMapping((int) newLocalId, serverCard.getId(), "card"));
-                                Log.d(TAG, "Inserted new card with serverId: " + serverCard.getId());
+                                idMappingRepository.insertIdMappingSafe(new IdMapping((int) newLocalId, serverCardId, "card"));
+                                Log.d(TAG, "Inserted new card with serverId: " + serverCardId);
                             } else {
-                                Date localLastModified = truncateToMinute(dateFormat.parse(localCard.getLastModified()));
+                                // Parse để so sánh thời gian
+                                Date serverLastModified = dateFormat.parse(serverLastModifiedStr);
+                                Date localLastModified = dateFormat.parse(localCard.getLastModified());
+                                serverLastModified = truncateToMinute(serverLastModified);
+                                localLastModified = truncateToMinute(localLastModified);
+
                                 if ("pending_delete".equals(localCard.getSyncStatus())) {
                                     Log.d(TAG, "Skipping update for card marked as pending_delete: " + localCard.getId());
                                     continue;
@@ -820,8 +831,8 @@ public class SyncManager {
                                 if (serverLastModified.after(localLastModified) && !"pending_update".equals(localCard.getSyncStatus())) {
                                     localCard.setFront(serverCard.getFront());
                                     localCard.setBack(serverCard.getBack());
-                                    localCard.setDeskId(desk.getId());
-                                    localCard.setLastModified(formattedLastModified);
+                                    localCard.setCreatedAt(serverCreatedAtStr); // Truyền String
+                                    localCard.setLastModified(serverLastModifiedStr); // Truyền String
                                     cardRepository.updateCard(localCard, true);
                                     cardRepository.updateSyncStatus(localCard.getId(), "synced");
                                     Log.d(TAG, "Updated card with localId: " + localCard.getId());
@@ -842,7 +853,8 @@ public class SyncManager {
                 @Override
                 public void onFailure(Call<List<CardDto>> call, Throwable t) {
                     Log.e(TAG, "Network error pulling cards for deskId: " + serverDeskId + ": " + t.getMessage());
-                    callback.onFailure("Network error: " + t.getMessage());
+                    completedDesks[0]++;
+                    if (completedDesks[0] == totalDesks) callback.onSuccess();
                 }
             });
         }
@@ -861,11 +873,6 @@ public class SyncManager {
             return;
         }
 
-        Log.d(TAG, "Processing " + pendingCards.size() + " pending cards");
-        for (Card card : pendingCards) {
-            Log.d(TAG, "Processing card - ID: " + card.getId() + ", ServerId: " + card.getServerId() + ", SyncStatus: " + card.getSyncStatus());
-        }
-
         final int totalPending = pendingCards.size();
         final int[] completedTasks = {0};
 
@@ -876,10 +883,7 @@ public class SyncManager {
                         @Override
                         public void onSuccess() {
                             completedTasks[0]++;
-                            if (completedTasks[0] == totalPending) {
-                                Log.d(TAG, "Completed all card sync tasks");
-                                callback.onSuccess();
-                            }
+                            if (completedTasks[0] == totalPending) callback.onSuccess();
                         }
 
                         @Override
@@ -893,10 +897,7 @@ public class SyncManager {
                         @Override
                         public void onSuccess() {
                             completedTasks[0]++;
-                            if (completedTasks[0] == totalPending) {
-                                Log.d(TAG, "Completed all card sync tasks");
-                                callback.onSuccess();
-                            }
+                            if (completedTasks[0] == totalPending) callback.onSuccess();
                         }
 
                         @Override
@@ -910,10 +911,7 @@ public class SyncManager {
                         @Override
                         public void onSuccess() {
                             completedTasks[0]++;
-                            if (completedTasks[0] == totalPending) {
-                                Log.d(TAG, "Completed all card sync tasks");
-                                callback.onSuccess();
-                            }
+                            if (completedTasks[0] == totalPending) callback.onSuccess();
                         }
 
                         @Override
@@ -1067,40 +1065,68 @@ public class SyncManager {
         });
     }
 
+    private void cleanUpOrphanedReviews(final SyncCallback callback) {
+        Log.d(TAG, "Cleaning up orphaned reviews...");
+        List<Card> cards = cardRepository.getAllCards();
+        List<Review> allReviews = reviewRepository.getAllReviews();
+        for (Review review : allReviews) {
+            boolean hasCard = false;
+            for (Card card : cards) {
+                if (card.getId() == review.getCardId()) {
+                    hasCard = true;
+                    break;
+                }
+            }
+            if (!hasCard) {
+                reviewRepository.deleteReviewConfirmed(review.getId());
+                Log.d(TAG, "Deleted orphaned review with localId: " + review.getId());
+            }
+        }
+        Log.d(TAG, "Orphaned reviews cleanup completed");
+        callback.onSuccess();
+    }
+
 
     // SYNC REVIEW SECTION
     // SYNC REVIEW SECTION
     public void syncReviews(final SyncCallback callback) {
         Log.d(TAG, "Starting review sync...");
-        cleanupOrphanedReviews(); // Thêm bước dọn dẹp trước khi đồng bộ
-        pullReviewsFromServer(new SyncCallback() {
+        cleanUpOrphanedReviews(new SyncCallback() {
             @Override
             public void onSuccess() {
-                Log.d(TAG, "Pull reviews completed, starting push...");
-                pushReviewsToServer(new SyncCallback() {
+                pullReviewsFromServer(new SyncCallback() {
                     @Override
                     public void onSuccess() {
-                        List<Review> pendingReviews = new ArrayList<>();
-                        pendingReviews.addAll(reviewRepository.getPendingReviews("pending_create"));
-                        pendingReviews.addAll(reviewRepository.getPendingReviews("pending_update"));
-                        pendingReviews.addAll(reviewRepository.getPendingReviews("pending_delete"));
-                        if (!pendingReviews.isEmpty()) {
-                            Log.w(TAG, "Pending reviews remain: " + pendingReviews.size());
-                            for (Review review : pendingReviews) {
-                                Log.d(TAG, "Pending review - ID: " + review.getId() +
-                                        ", CardId: " + review.getCardId() +
-                                        ", SyncStatus: " + review.getSyncStatus());
+                        pushReviewsToServer(new SyncCallback() {
+                            @Override
+                            public void onSuccess() {
+                                List<Review> pendingReviews = new ArrayList<>();
+                                pendingReviews.addAll(reviewRepository.getPendingReviews("pending_create"));
+                                pendingReviews.addAll(reviewRepository.getPendingReviews("pending_update"));
+                                pendingReviews.addAll(reviewRepository.getPendingReviews("pending_delete"));
+                                if (!pendingReviews.isEmpty()) {
+                                    Log.d(TAG, "Pending reviews remain: " + pendingReviews.size());
+                                    for (Review review : pendingReviews) {
+                                        Log.d(TAG, "Pending review - ID: " + review.getId() +
+                                                ", CardId: " + review.getCardId() +
+                                                ", SyncStatus: " + review.getSyncStatus());
+                                    }
+                                    syncReviews(callback);
+                                } else {
+                                    Log.d(TAG, "Review sync completed successfully");
+                                    callback.onSuccess();
+                                }
                             }
-                            syncReviews(callback);
-                        } else {
-                            Log.d(TAG, "Review sync completed successfully");
-                            callback.onSuccess();
-                        }
+
+                            @Override
+                            public void onFailure(String error) {
+                                callback.onFailure(error);
+                            }
+                        });
                     }
 
                     @Override
                     public void onFailure(String error) {
-                        Log.e(TAG, "Push reviews failed: " + error);
                         callback.onFailure(error);
                     }
                 });
@@ -1108,7 +1134,6 @@ public class SyncManager {
 
             @Override
             public void onFailure(String error) {
-                Log.e(TAG, "Pull reviews failed: " + error);
                 callback.onFailure(error);
             }
         });
@@ -1123,15 +1148,14 @@ public class SyncManager {
             return;
         }
 
+        Log.d(TAG, "Processing " + cards.size() + " cards for review sync");
         final int totalCards = cards.size();
         final int[] completedCards = {0};
-
-        Log.d(TAG, "Processing " + totalCards + " cards for review sync");
 
         for (Card card : cards) {
             String serverCardId = idMappingRepository.getServerIdByLocalId(card.getId(), "card");
             if (serverCardId == null) {
-                Log.w(TAG, "Card not synced, skipping reviews for localCardId: " + card.getId());
+                Log.d(TAG, "Card not synced, skipping review for cardId: " + card.getId());
                 completedCards[0]++;
                 if (completedCards[0] == totalCards) {
                     Log.d(TAG, "Completed pulling reviews for all cards");
@@ -1145,12 +1169,8 @@ public class SyncManager {
                 @Override
                 public void onResponse(Call<ReviewDto> call, Response<ReviewDto> response) {
                     if (!response.isSuccessful()) {
-                        if (response.code() == 404) {
-                            Log.d(TAG, "No review found for serverCardId: " + serverCardId);
-                        } else {
-                            Log.e(TAG, "Failed to pull review for serverCardId: " + serverCardId +
-                                    ", code: " + response.code());
-                        }
+                        Log.e(TAG, "Failed to pull review for serverCardId: " + serverCardId +
+                                ", code: " + response.code());
                         completedCards[0]++;
                         if (completedCards[0] == totalCards) {
                             Log.d(TAG, "Completed pulling reviews for all cards");
@@ -1161,7 +1181,13 @@ public class SyncManager {
 
                     ReviewDto serverReview = response.body();
                     if (serverReview == null || serverReview.getId() == null) {
-                        Log.w(TAG, "Invalid review data for serverCardId: " + serverCardId);
+                        Log.d(TAG, "No review found for serverCardId: " + serverCardId);
+                        // Xóa review pending_create nếu có
+                        Review existingReview = reviewRepository.getReviewByCardId(card.getId());
+                        if (existingReview != null && "pending_create".equals(existingReview.getSyncStatus())) {
+                            reviewRepository.deleteReviewConfirmed(existingReview.getId());
+                            Log.d(TAG, "Deleted unnecessary pending_create review for cardId: " + card.getId());
+                        }
                         completedCards[0]++;
                         if (completedCards[0] == totalCards) {
                             Log.d(TAG, "Completed pulling reviews for all cards");
@@ -1170,97 +1196,55 @@ public class SyncManager {
                         return;
                     }
 
+                    String serverReviewId = serverReview.getId();
+                    Integer localReviewId = idMappingRepository.getLocalIdByServerId(serverReviewId, "review");
+                    Review localReview = localReviewId != null ? reviewRepository.getReviewById(localReviewId) : null;
+
+                    // Xóa review pending_create hiện có cho card này
+                    Review existingReview = reviewRepository.getReviewByCardId(card.getId());
+                    if (existingReview != null && "pending_create".equals(existingReview.getSyncStatus())) {
+                        reviewRepository.deleteReviewConfirmed(existingReview.getId());
+                        Log.d(TAG, "Deleted pending_create review for cardId: " + card.getId() +
+                                " before inserting server review");
+                    }
+
                     Log.d(TAG, "Successfully pulled review for serverCardId: " + serverCardId +
-                            ", serverReviewId: " + serverReview.getId() +
+                            ", serverReviewId: " + serverReviewId +
                             ", lastReviewed: " + serverReview.getLastReviewed());
 
-                    Integer localReviewId = idMappingRepository.getLocalIdByServerId(
-                            serverReview.getId(), "review");
-                    Review localReview = localReviewId != null ?
-                            reviewRepository.getReviewById(localReviewId) : null;
-
-                    String currentTime = dateFormat.format(new Date());
-                    if (localReview == null) {
-                        // Chèn Review mới
-                        Review newReview = new Review();
-                        newReview.setServerId(serverReview.getId());
-                        newReview.setCardId(card.getId());
-                        newReview.setEase(serverReview.getEase());
-                        newReview.setInterval(serverReview.getInterval());
-                        newReview.setRepetition(serverReview.getRepetition());
-                        newReview.setNextReviewDate(serverReview.getNextReviewDate());
-                        newReview.setLastReviewed(serverReview.getLastReviewed());
-                        newReview.setLastModified(currentTime);
-                        newReview.setSyncStatus("synced");
-                        long newLocalId = reviewRepository.insertReview(newReview);
-                        idMappingRepository.insertIdMapping(
-                                new IdMapping((int) newLocalId, serverReview.getId(), "review"));
-                        Log.d(TAG, "Inserted new review with localId: " + newLocalId +
-                                ", serverId: " + serverReview.getId());
-                    } else {
-                        // So sánh dựa trên lastReviewed
-                        if ("pending_delete".equals(localReview.getSyncStatus()) ||
-                                "pending_update".equals(localReview.getSyncStatus())) {
-                            Log.d(TAG, "Skipping update for review with localId: " +
-                                    localReview.getId() + ", status: " + localReview.getSyncStatus());
+                    try {
+                        String lastReviewedStr = serverReview.getLastReviewed();
+                        String nextReviewDateStr = serverReview.getNextReviewDate();
+                        if (localReview == null) {
+                            Review newReview = new Review();
+                            newReview.setServerId(serverReviewId);
+                            newReview.setCardId(card.getId());
+                            newReview.setEase(serverReview.getEase());
+                            newReview.setInterval(serverReview.getInterval());
+                            newReview.setRepetition(serverReview.getRepetition());
+                            newReview.setNextReviewDate(nextReviewDateStr);
+                            newReview.setLastReviewed(lastReviewedStr);
+                            newReview.setSyncStatus("synced");
+                            long newLocalId = reviewRepository.insertReview(newReview);
+                            idMappingRepository.insertIdMappingSafe(new IdMapping((int) newLocalId, serverReviewId, "review"));
+                            Log.d(TAG, "Inserted new review with localId: " + newLocalId +
+                                    ", serverId: " + serverReviewId);
                         } else {
-                            try {
-                                boolean shouldUpdateLocal = false;
-                                String serverLastReviewed = serverReview.getLastReviewed();
-                                String localLastReviewed = localReview.getLastReviewed();
-
-                                if (serverLastReviewed == null && localLastReviewed == null) {
-                                    // Cả hai đều null, cập nhật local với dữ liệu server
-                                    shouldUpdateLocal = true;
-                                } else if (serverLastReviewed == null) {
-                                    // Server null, local không null -> ưu tiên local
-                                    reviewRepository.updateSyncStatus(localReview.getId(), "pending_update");
-                                    Log.d(TAG, "Server lastReviewed is null, marked review as pending_update: " +
-                                            localReview.getId());
-                                } else if (localLastReviewed == null) {
-                                    // Local null, server không null -> ưu tiên server
-                                    shouldUpdateLocal = true;
-                                } else {
-                                    // Cả hai đều không null, so sánh ngày
-                                    Date serverDate = dateFormat.parse(serverLastReviewed);
-                                    Date localDate = dateFormat.parse(localLastReviewed);
-                                    if (serverDate.after(localDate)) {
-                                        shouldUpdateLocal = true;
-                                    } else if (localDate.after(serverDate)) {
-                                        reviewRepository.updateSyncStatus(localReview.getId(), "pending_update");
-                                        Log.d(TAG, "Local lastReviewed is newer, marked as pending_update: " +
-                                                localReview.getId());
-                                    }
-                                }
-
-                                if (shouldUpdateLocal) {
-                                    localReview.setEase(serverReview.getEase());
-                                    localReview.setInterval(serverReview.getInterval());
-                                    localReview.setRepetition(serverReview.getRepetition());
-                                    localReview.setNextReviewDate(serverReview.getNextReviewDate());
-                                    localReview.setLastReviewed(serverReview.getLastReviewed());
-                                    localReview.setLastModified(currentTime);
-                                    reviewRepository.updateReview(localReview, true);
-                                    reviewRepository.updateSyncStatus(localReview.getId(), "synced");
-                                    Log.d(TAG, "Updated review with localId: " + localReview.getId() +
-                                            ", serverId: " + serverReview.getId() +
-                                            ", lastReviewed: " + serverReview.getLastReviewed());
-                                }
-                            } catch (ParseException e) {
-                                Log.e(TAG, "Error parsing lastReviewed for reviewId: " + localReview.getId() +
-                                        ": " + e.getMessage());
-                                // Nếu lỗi parse, ưu tiên server để đảm bảo đồng bộ
+                            if ("pending_delete".equals(localReview.getSyncStatus())) {
+                                Log.d(TAG, "Skipping update for review marked as pending_delete: " + localReview.getId());
+                            } else {
                                 localReview.setEase(serverReview.getEase());
                                 localReview.setInterval(serverReview.getInterval());
                                 localReview.setRepetition(serverReview.getRepetition());
-                                localReview.setNextReviewDate(serverReview.getNextReviewDate());
-                                localReview.setLastReviewed(serverReview.getLastReviewed());
-                                localReview.setLastModified(currentTime);
+                                localReview.setNextReviewDate(nextReviewDateStr);
+                                localReview.setLastReviewed(lastReviewedStr);
                                 reviewRepository.updateReview(localReview, true);
                                 reviewRepository.updateSyncStatus(localReview.getId(), "synced");
-                                Log.d(TAG, "Updated review due to parse error with localId: " + localReview.getId());
+                                Log.d(TAG, "Updated review with localId: " + localReview.getId());
                             }
                         }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error processing review for serverCardId: " + serverCardId + ": " + e.getMessage());
                     }
 
                     completedCards[0]++;
@@ -1272,11 +1256,10 @@ public class SyncManager {
 
                 @Override
                 public void onFailure(Call<ReviewDto> call, Throwable t) {
-                    Log.e(TAG, "Network error pulling review for serverCardId: " + serverCardId +
-                            ": " + t.getMessage());
+                    Log.e(TAG, "Network error pulling review for serverCardId: " + serverCardId + ": " + t.getMessage());
                     completedCards[0]++;
                     if (completedCards[0] == totalCards) {
-                        Log.d(TAG, "Completed pulling reviews for all cards despite errors");
+                        Log.d(TAG, "Completed pulling reviews for all cards");
                         callback.onSuccess();
                     }
                 }
@@ -1298,84 +1281,24 @@ public class SyncManager {
         }
 
         Log.d(TAG, "Processing " + pendingReviews.size() + " pending reviews");
-        for (Review review : pendingReviews) {
-            Log.d(TAG, "Pending review - ID: " + review.getId() +
-                    ", CardId: " + review.getCardId() +
-                    ", SyncStatus: " + review.getSyncStatus());
-        }
-
         final int totalPending = pendingReviews.size();
         final int[] completedTasks = {0};
 
         for (Review review : pendingReviews) {
-            // Kiểm tra Card liên quan
-            Card card = cardRepository.getCardById(review.getCardId());
-            if (card == null || "pending_delete".equals(card.getSyncStatus())) {
-                Log.w(TAG, "Card not found or marked for deletion for reviewId: " + review.getId() +
-                        ", marking review as pending_delete");
-                review.setSyncStatus("pending_delete");
-                reviewRepository.updateReview(review, false);
-                reviewRepository.updateSyncStatus(review.getId(), "pending_delete");
-                deleteReviewOnServer(review, pendingReviews, new SyncCallback() {
-                    @Override
-                    public void onSuccess() {
-                        completedTasks[0]++;
-                        if (completedTasks[0] == totalPending) {
-                            Log.d(TAG, "Completed all review sync tasks");
-                            callback.onSuccess();
-                        }
-                    }
-
-                    @Override
-                    public void onFailure(String error) {
-                        Log.e(TAG, "Failed to delete review ID: " + review.getId() + ": " + error);
-                        callback.onFailure(error);
-                    }
-                });
-                continue;
-            }
-
-            // Kiểm tra dữ liệu hợp lệ
-            if (review.getCardId() == 0 || review.getEase() <= 0 || review.getNextReviewDate() == null) {
-                Log.w(TAG, "Invalid review data for ID: " + review.getId() +
-                        ", marking as pending_delete");
-                review.setSyncStatus("pending_delete");
-                reviewRepository.updateReview(review, false);
-                reviewRepository.updateSyncStatus(review.getId(), "pending_delete");
-                deleteReviewOnServer(review, pendingReviews, new SyncCallback() {
-                    @Override
-                    public void onSuccess() {
-                        completedTasks[0]++;
-                        if (completedTasks[0] == totalPending) {
-                            Log.d(TAG, "Completed all review sync tasks");
-                            callback.onSuccess();
-                        }
-                    }
-
-                    @Override
-                    public void onFailure(String error) {
-                        Log.e(TAG, "Failed to delete review ID: " + review.getId() + ": " + error);
-                        callback.onFailure(error);
-                    }
-                });
-                continue;
-            }
-
+            Log.d(TAG, "Pending review - ID: " + review.getId() +
+                    ", CardId: " + review.getCardId() +
+                    ", SyncStatus: " + review.getSyncStatus());
             switch (review.getSyncStatus()) {
                 case "pending_create":
                     createReviewOnServer(review, new SyncCallback() {
                         @Override
                         public void onSuccess() {
                             completedTasks[0]++;
-                            if (completedTasks[0] == totalPending) {
-                                Log.d(TAG, "Completed all review sync tasks");
-                                callback.onSuccess();
-                            }
+                            if (completedTasks[0] == totalPending) callback.onSuccess();
                         }
 
                         @Override
                         public void onFailure(String error) {
-                            Log.e(TAG, "Failed to create review ID: " + review.getId() + ": " + error);
                             callback.onFailure(error);
                         }
                     });
@@ -1385,15 +1308,11 @@ public class SyncManager {
                         @Override
                         public void onSuccess() {
                             completedTasks[0]++;
-                            if (completedTasks[0] == totalPending) {
-                                Log.d(TAG, "Completed all review sync tasks");
-                                callback.onSuccess();
-                            }
+                            if (completedTasks[0] == totalPending) callback.onSuccess();
                         }
 
                         @Override
                         public void onFailure(String error) {
-                            Log.e(TAG, "Failed to update review ID: " + review.getId() + ": " + error);
                             callback.onFailure(error);
                         }
                     });
@@ -1403,15 +1322,11 @@ public class SyncManager {
                         @Override
                         public void onSuccess() {
                             completedTasks[0]++;
-                            if (completedTasks[0] == totalPending) {
-                                Log.d(TAG, "Completed all review sync tasks");
-                                callback.onSuccess();
-                            }
+                            if (completedTasks[0] == totalPending) callback.onSuccess();
                         }
 
                         @Override
                         public void onFailure(String error) {
-                            Log.e(TAG, "Failed to delete review ID: " + review.getId() + ": " + error);
                             callback.onFailure(error);
                         }
                     });
@@ -1421,24 +1336,9 @@ public class SyncManager {
     }
 
     private void createReviewOnServer(final Review review, final SyncCallback callback) {
-        // Kiểm tra Card trước
-        Card card = cardRepository.getCardById(review.getCardId());
-        if (card == null || "pending_delete".equals(card.getSyncStatus())) {
-            Log.w(TAG, "Card not found or marked for deletion for reviewId: " + review.getId() +
-                    ", marking as pending_delete");
-            review.setSyncStatus("pending_delete");
-            reviewRepository.updateReview(review, false);
-            reviewRepository.updateSyncStatus(review.getId(), "pending_delete");
-            deleteReviewOnServer(review, new ArrayList<>(), callback);
-            return;
-        }
-
         String serverCardId = idMappingRepository.getServerIdByLocalId(review.getCardId(), "card");
-        boolean cardNotSynced = review.getCardId() != 0 && serverCardId == null;
-
-        if (cardNotSynced) {
-            Log.w(TAG, "Card not synced for reviewId: " + review.getId() +
-                    ", delaying sync until card is synced");
+        if (serverCardId == null) {
+            Log.d(TAG, "Card not synced for reviewId: " + review.getId() + ", delaying sync");
             callback.onSuccess();
             return;
         }
@@ -1451,10 +1351,8 @@ public class SyncManager {
         dto.setNextReviewDate(review.getNextReviewDate());
         dto.setLastReviewed(review.getLastReviewed());
 
-        // Log dữ liệu gửi đi để debug
-        Log.d(TAG, "Creating review with DTO: " +
-                "reviewId=" + review.getId() +
-                ", cardId=" + dto.getCardId() +
+        Log.d(TAG, "Creating review with DTO: reviewId=" + review.getId() +
+                ", cardId=" + serverCardId +
                 ", ease=" + dto.getEase() +
                 ", interval=" + dto.getInterval() +
                 ", repetition=" + dto.getRepetition() +
@@ -1467,40 +1365,23 @@ public class SyncManager {
                 if (response.isSuccessful() && response.body() != null) {
                     ReviewDto serverReview = response.body();
                     review.setServerId(serverReview.getId());
-                    review.setLastModified(dateFormat.format(new Date()));
                     reviewRepository.updateReview(review, true);
-                    idMappingRepository.insertIdMapping(
-                            new IdMapping(review.getId(), serverReview.getId(), "review"));
+                    idMappingRepository.insertIdMappingSafe(new IdMapping(review.getId(), serverReview.getId(), "review"));
                     reviewRepository.updateSyncStatus(review.getId(), "synced");
                     Log.d(TAG, "Created review on server with localId: " + review.getId() +
                             ", serverId: " + serverReview.getId() +
                             ", syncStatus: synced");
                     callback.onSuccess();
                 } else {
-                    String errorBody = "";
-                    try {
-                        if (response.errorBody() != null) {
-                            errorBody = response.errorBody().string();
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error reading errorBody for reviewId: " + review.getId() +
-                                ": " + e.getMessage());
-                    }
-                    Log.e(TAG, "Failed to create review for reviewId: " + review.getId() +
-                            ", code: " + response.code() +
-                            ", message: " + response.message() +
-                            ", errorBody: " + errorBody);
-                    callback.onFailure("Failed to create review for reviewId: " + review.getId() +
-                            ": " + response.message() + ", error: " + errorBody);
+                    Log.e(TAG, "Failed to create review: " + response.code());
+                    callback.onFailure("Failed to create review: " + response.message());
                 }
             }
 
             @Override
             public void onFailure(Call<ReviewDto> call, Throwable t) {
-                Log.e(TAG, "Network error creating review for reviewId: " + review.getId() +
-                        ": " + t.getMessage());
-                callback.onFailure("Network error for reviewId: " + review.getId() +
-                        ": " + t.getMessage());
+                Log.e(TAG, "Network error creating review: " + t.getMessage());
+                callback.onFailure("Network error: " + t.getMessage());
             }
         });
     }
@@ -1508,30 +1389,13 @@ public class SyncManager {
     private void updateReviewOnServer(final Review review, final SyncCallback callback) {
         String serverId = idMappingRepository.getServerIdByLocalId(review.getId(), "review");
         if (serverId == null) {
-            Log.d(TAG, "No serverId found for reviewId: " + review.getId() +
-                    ", treating as create");
             createReviewOnServer(review, callback);
             return;
         }
 
-        // Kiểm tra Card trước
-        Card card = cardRepository.getCardById(review.getCardId());
-        if (card == null || "pending_delete".equals(card.getSyncStatus())) {
-            Log.w(TAG, "Card not found or marked for deletion for reviewId: " + review.getId() +
-                    ", marking as pending_delete");
-            review.setSyncStatus("pending_delete");
-            reviewRepository.updateReview(review, false);
-            reviewRepository.updateSyncStatus(review.getId(), "pending_delete");
-            deleteReviewOnServer(review, new ArrayList<>(), callback);
-            return;
-        }
-
         String serverCardId = idMappingRepository.getServerIdByLocalId(review.getCardId(), "card");
-        boolean cardNotSynced = review.getCardId() != 0 && serverCardId == null;
-
-        if (cardNotSynced) {
-            Log.w(TAG, "Card not synced for reviewId: " + review.getId() +
-                    ", delaying sync until card is synced");
+        if (serverCardId == null) {
+            Log.d(TAG, "Card not synced for reviewId: " + review.getId() + ", delaying sync");
             callback.onSuccess();
             return;
         }
@@ -1544,126 +1408,61 @@ public class SyncManager {
         dto.setNextReviewDate(review.getNextReviewDate());
         dto.setLastReviewed(review.getLastReviewed());
 
-        // Log dữ liệu gửi đi để debug
-        Log.d(TAG, "Updating review with DTO: " +
-                "reviewId=" + review.getId() +
-                ", serverId=" + serverId +
-                ", cardId=" + dto.getCardId() +
-                ", ease=" + dto.getEase() +
-                ", interval=" + dto.getInterval() +
-                ", repetition=" + dto.getRepetition() +
-                ", nextReviewDate=" + dto.getNextReviewDate() +
-                ", lastReviewed=" + dto.getLastReviewed());
-
         apiService.updateReview(serverId, dto).enqueue(new Callback<Void>() {
             @Override
             public void onResponse(Call<Void> call, Response<Void> response) {
                 if (response.isSuccessful()) {
-                    review.setLastModified(dateFormat.format(new Date()));
                     reviewRepository.updateReview(review, true);
                     reviewRepository.updateSyncStatus(review.getId(), "synced");
-                    Log.d(TAG, "Updated review on server with localId: " + review.getId() +
-                            ", serverId=" + serverId +
-                            ", syncStatus: synced");
+                    Log.d(TAG, "Updated review on server with serverId: " + serverId);
                     callback.onSuccess();
                 } else {
-                    String errorBody = "";
-                    try {
-                        if (response.errorBody() != null) {
-                            errorBody = response.errorBody().string();
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error reading errorBody for reviewId: " + review.getId() +
-                                ": " + e.getMessage());
-                    }
-                    Log.e(TAG, "Failed to update review for reviewId: " + review.getId() +
-                            ", code: " + response.code() +
-                            ", message: " + response.message() +
-                            ", errorBody: " + errorBody);
-                    callback.onFailure("Failed to update review for reviewId: " + review.getId() +
-                            ": " + response.message() + ", error: " + errorBody);
+                    Log.e(TAG, "Failed to update review: " + response.code());
+                    callback.onFailure("Failed to update review: " + response.message());
                 }
             }
 
             @Override
             public void onFailure(Call<Void> call, Throwable t) {
-                Log.e(TAG, "Network error updating review for reviewId: " + review.getId() +
-                        ": " + t.getMessage());
-                callback.onFailure("Network error for reviewId: " + review.getId() +
-                        ": " + t.getMessage());
+                Log.e(TAG, "Network error updating review: " + t.getMessage());
+                callback.onFailure("Network error: " + t.getMessage());
             }
         });
     }
 
-    private void deleteReviewOnServer(final Review review, final List<Review> pendingReviews,
-                                      final SyncCallback callback) {
+    private void deleteReviewOnServer(final Review review, final List<Review> pendingReviews, final SyncCallback callback) {
         String serverId = idMappingRepository.getServerIdByLocalId(review.getId(), "review");
         if (serverId == null) {
             reviewRepository.deleteReviewConfirmed(review.getId());
-            Log.d(TAG, "No serverId found, deleted review locally with localId: " + review.getId());
             pendingReviews.remove(review);
+            Log.d(TAG, "No serverId found, deleted review locally: " + review.getId());
             callback.onSuccess();
             return;
         }
 
-        Log.d(TAG, "Deleting review with localId: " + review.getId() +
-                ", serverId: " + serverId);
-
         apiService.deleteReview(serverId).enqueue(new Callback<Void>() {
             @Override
             public void onResponse(Call<Void> call, Response<Void> response) {
-                if (response.isSuccessful() || response.code() == 404) { // Xử lý lỗi 404
+                if (response.isSuccessful()) {
                     reviewRepository.deleteReviewConfirmed(review.getId());
                     pendingReviews.remove(review);
-                    Log.d(TAG, "Deleted review on server with localId: " + review.getId() +
-                            ", serverId: " + serverId);
+                    Log.d(TAG, "Deleted review on server with serverId: " + serverId);
                     callback.onSuccess();
                 } else {
-                    String errorBody = "";
-                    try {
-                        if (response.errorBody() != null) {
-                            errorBody = response.errorBody().string();
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error reading errorBody for reviewId: " + review.getId() +
-                                ": " + e.getMessage());
-                    }
-                    Log.e(TAG, "Failed to delete review for reviewId: " + review.getId() +
-                            ", code: " + response.code() +
-                            ", message: " + response.message() +
-                            ", errorBody: " + errorBody);
-                    callback.onFailure("Failed to delete review for reviewId: " + review.getId() +
-                            ": " + response.message() + ", error: " + errorBody);
+                    Log.e(TAG, "Failed to delete review: " + response.code());
+                    callback.onFailure("Failed to delete review: " + response.message());
                 }
             }
 
             @Override
             public void onFailure(Call<Void> call, Throwable t) {
-                Log.e(TAG, "Network error deleting review for reviewId: " + review.getId() +
-                        ": " + t.getMessage());
-                callback.onFailure("Network error for reviewId: " + review.getId() +
-                        ": " + t.getMessage());
+                Log.e(TAG, "Network error deleting review: " + t.getMessage());
+                callback.onFailure("Network error: " + t.getMessage());
             }
         });
     }
 
     // Phương thức mới để dọn dẹp Review mồ côi
-    public void cleanupOrphanedReviews() {
-        Log.d(TAG, "Cleaning up orphaned reviews...");
-        List<Review> allReviews = reviewRepository.getAllReviews();
-        for (Review review : allReviews) {
-            Card card = cardRepository.getCardById(review.getCardId());
-            if (card == null || "pending_delete".equals(card.getSyncStatus())) {
-                Log.w(TAG, "Found orphaned review - ID: " + review.getId() +
-                        ", CardId: " + review.getCardId() +
-                        ", marking as pending_delete");
-                review.setSyncStatus("pending_delete");
-                reviewRepository.updateReview(review, false);
-                reviewRepository.updateSyncStatus(review.getId(), "pending_delete");
-            }
-        }
-        Log.d(TAG, "Orphaned reviews cleanup completed");
-    }
 
     public interface SyncCallback {
         void onSuccess();

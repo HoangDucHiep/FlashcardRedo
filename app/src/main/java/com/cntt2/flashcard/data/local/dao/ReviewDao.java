@@ -98,12 +98,13 @@ public class ReviewDao {
         return review;
     }
 
+    @SuppressLint("Range")
     public List<Review> getAllReviews() {
         List<Review> reviews = new ArrayList<>();
         SQLiteDatabase db = dbHelper.getReadableDatabase();
         Cursor cursor = db.rawQuery("SELECT * FROM reviews", null);
-        if (cursor.moveToFirst()) {
-            do {
+        try {
+            while (cursor.moveToNext()) {
                 Review review = new Review();
                 review.setId(cursor.getInt(cursor.getColumnIndexOrThrow("id")));
                 review.setCardId(cursor.getInt(cursor.getColumnIndexOrThrow("card_id")));
@@ -112,14 +113,14 @@ public class ReviewDao {
                 review.setRepetition(cursor.getInt(cursor.getColumnIndexOrThrow("repetition")));
                 review.setNextReviewDate(cursor.getString(cursor.getColumnIndexOrThrow("next_review_date")));
                 review.setLastReviewed(cursor.getString(cursor.getColumnIndexOrThrow("last_reviewed")));
-                review.setLastModified(cursor.getString(cursor.getColumnIndexOrThrow("last_modified")));
                 review.setSyncStatus(cursor.getString(cursor.getColumnIndexOrThrow("sync_status")));
                 reviews.add(review);
-            } while (cursor.moveToNext());
+            }
+            return reviews;
+        } finally {
+            cursor.close();
+            db.close();
         }
-        cursor.close();
-        db.close();
-        return reviews;
     }
 
     public List<Review> getReviewsByCardId(int cardId) {
@@ -149,23 +150,26 @@ public class ReviewDao {
     @SuppressLint("Range")
     public Review getReviewByCardId(int cardId) {
         SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT * FROM reviews WHERE card_id = ?", new String[]{String.valueOf(cardId)});
-        Review review = null;
-        if (cursor.moveToFirst()) {
-            review = new Review();
-            review.setId(cursor.getInt(cursor.getColumnIndexOrThrow("id")));
-            review.setCardId(cursor.getInt(cursor.getColumnIndexOrThrow("card_id")));
-            review.setEase(cursor.getDouble(cursor.getColumnIndexOrThrow("ease")));
-            review.setInterval(cursor.getInt(cursor.getColumnIndexOrThrow("interval")));
-            review.setRepetition(cursor.getInt(cursor.getColumnIndexOrThrow("repetition")));
-            review.setNextReviewDate(cursor.getString(cursor.getColumnIndexOrThrow("next_review_date")));
-            review.setLastReviewed(cursor.getString(cursor.getColumnIndexOrThrow("last_reviewed")));
-            review.setLastModified(cursor.getString(cursor.getColumnIndexOrThrow("last_modified")));
-            review.setSyncStatus(cursor.getString(cursor.getColumnIndexOrThrow("sync_status")));
+        Cursor cursor = db.rawQuery("SELECT * FROM reviews WHERE card_id = ? LIMIT 1",
+                new String[]{String.valueOf(cardId)});
+        try {
+            if (cursor.moveToFirst()) {
+                Review review = new Review();
+                review.setId(cursor.getInt(cursor.getColumnIndexOrThrow("id")));
+                review.setCardId(cursor.getInt(cursor.getColumnIndexOrThrow("card_id")));
+                review.setEase(cursor.getDouble(cursor.getColumnIndexOrThrow("ease")));
+                review.setInterval(cursor.getInt(cursor.getColumnIndexOrThrow("interval")));
+                review.setRepetition(cursor.getInt(cursor.getColumnIndexOrThrow("repetition")));
+                review.setNextReviewDate(cursor.getString(cursor.getColumnIndexOrThrow("next_review_date")));
+                review.setLastReviewed(cursor.getString(cursor.getColumnIndexOrThrow("last_reviewed")));
+                review.setSyncStatus(cursor.getString(cursor.getColumnIndexOrThrow("sync_status")));
+                return review;
+            }
+            return null;
+        } finally {
+            cursor.close();
+            db.close();
         }
-        cursor.close();
-        db.close();
-        return review;
     }
 
     @SuppressLint("Range")

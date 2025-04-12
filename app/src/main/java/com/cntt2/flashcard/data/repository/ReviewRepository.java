@@ -29,21 +29,28 @@ public class ReviewRepository {
     }
 
     public long insertReview(Review review) {
-        review.setLastModified(dateFormat.format(new Date()));
+        Review existingReview = getReviewByCardId(review.getCardId());
+        if (existingReview != null) {
+            reviewDao.deleteReview(existingReview.getId());
+            idMappingRepository.deleteIdMapping(existingReview.getId(), "review");
+            Log.d(TAG, "Deleted existing review for cardId: " + review.getCardId() +
+                    " before inserting new review");
+        }
+
+        String currentTime = dateFormat.format(new Date());
         if (review.getServerId() == null) {
             review.setSyncStatus("pending_create");
         } else {
             review.setSyncStatus("synced");
         }
+
         long localId = reviewDao.insertReview(review);
-        if (localId != -1) {
-            Log.d(TAG, "Inserted review - localId: " + localId + ", cardId: " + review.getCardId() + ", syncStatus: " + review.getSyncStatus());
-            if (review.getServerId() != null) {
-                idMappingRepository.insertIdMapping(new IdMapping((int) localId, review.getServerId(), "review"));
-            }
-        } else {
-            Log.e(TAG, "Failed to insert review for cardId: " + review.getCardId());
+        if (review.getServerId() != null) {
+            idMappingRepository.insertIdMappingSafe(new IdMapping((int) localId, review.getServerId(), "review"));
         }
+        Log.d(TAG, "Inserted review - localId: " + localId +
+                ", cardId: " + review.getCardId() +
+                ", syncStatus: " + review.getSyncStatus());
         return localId;
     }
 
