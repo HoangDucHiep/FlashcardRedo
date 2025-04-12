@@ -11,11 +11,11 @@ public class IdMappingRepository {
     private final IdMappingDao idMappingDao;
 
     public IdMappingRepository(Context context) {
-        idMappingDao = new IdMappingDao(context);
+        this.idMappingDao = new IdMappingDao(context);
     }
 
-    public void insertIdMapping(IdMapping mapping) {
-        idMappingDao.insertIdMapping(mapping);
+    public long insertIdMapping(IdMapping mapping) {
+        return idMappingDao.insertIdMapping(mapping);
     }
 
     public void updateIdMapping(IdMapping mapping) {

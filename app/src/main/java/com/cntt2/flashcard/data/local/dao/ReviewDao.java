@@ -5,6 +5,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.util.Log;
 
 import com.cntt2.flashcard.data.local.DatabaseHelper;
 import com.cntt2.flashcard.model.Card;
@@ -15,6 +16,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class ReviewDao {
     private DatabaseHelper dbHelper;
@@ -58,9 +60,40 @@ public class ReviewDao {
 
     public int deleteReview(int reviewId) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
-        int rowsAffected = db.delete("reviews", "id = ?", new String[]{String.valueOf(reviewId)});
-        db.close();
+        int rowsAffected = 0;
+        try {
+            db.beginTransaction();
+            rowsAffected = db.delete("reviews", "id = ?", new String[]{String.valueOf(reviewId)});
+            db.setTransactionSuccessful();
+            Log.d("ReviewDao", "Deleted review - ID: " + reviewId + ", rowsAffected: " + rowsAffected);
+        } catch (Exception e) {
+            Log.e("ReviewDao", "Failed to delete review - ID: " + reviewId + ", error: " + e.getMessage());
+        } finally {
+            db.endTransaction();
+            db.close();
+        }
         return rowsAffected;
+    }
+
+    public Review getReviewById(int id) {
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT * FROM reviews WHERE id = ?", new String[]{String.valueOf(id)});
+        Review review = null;
+        if (cursor.moveToFirst()) {
+            review = new Review();
+            review.setId(cursor.getInt(cursor.getColumnIndexOrThrow("id")));
+            review.setCardId(cursor.getInt(cursor.getColumnIndexOrThrow("card_id")));
+            review.setEase(cursor.getDouble(cursor.getColumnIndexOrThrow("ease")));
+            review.setInterval(cursor.getInt(cursor.getColumnIndexOrThrow("interval")));
+            review.setRepetition(cursor.getInt(cursor.getColumnIndexOrThrow("repetition")));
+            review.setNextReviewDate(cursor.getString(cursor.getColumnIndexOrThrow("next_review_date")));
+            review.setLastReviewed(cursor.getString(cursor.getColumnIndexOrThrow("last_reviewed")));
+            review.setLastModified(cursor.getString(cursor.getColumnIndexOrThrow("last_modified")));
+            review.setSyncStatus(cursor.getString(cursor.getColumnIndexOrThrow("sync_status")));
+        }
+        cursor.close();
+        db.close();
+        return review;
     }
 
     public List<Review> getReviewsByCardId(int cardId) {
@@ -110,43 +143,19 @@ public class ReviewDao {
     }
 
     @SuppressLint("Range")
-    public List<Review> getReviewsDueToday(int deskId, String today) {
-        List<Review> reviews = new ArrayList<>();
-        SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.rawQuery(
-                "SELECT r.* FROM reviews r " +
-                        "JOIN cards c ON r.card_id = c.id " +
-                        "WHERE c.desk_id = ? AND r.next_review_date <= ?",
-                new String[]{String.valueOf(deskId), today});
-        if (cursor.moveToFirst()) {
-            do {
-                Review review = new Review();
-                review.setId(cursor.getInt(cursor.getColumnIndex("id")));
-                review.setCardId(cursor.getInt(cursor.getColumnIndex("card_id")));
-                review.setEase(cursor.getDouble(cursor.getColumnIndex("ease")));
-                review.setInterval(cursor.getInt(cursor.getColumnIndex("interval")));
-                review.setRepetition(cursor.getInt(cursor.getColumnIndex("repetition")));
-                review.setNextReviewDate(cursor.getString(cursor.getColumnIndex("next_review_date")));
-                review.setLastReviewed(cursor.getString(cursor.getColumnIndex("last_reviewed")));
-                review.setLastModified(cursor.getString(cursor.getColumnIndexOrThrow("last_modified")));
-                review.setSyncStatus(cursor.getString(cursor.getColumnIndexOrThrow("sync_status")));
-                reviews.add(review);
-            } while (cursor.moveToNext());
-        }
-        cursor.close();
-        db.close();
-        return reviews;
-    }
-
-    @SuppressLint("Range")
     public List<Card> getCardsToReview(int deskId) {
-        String currentDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+        // Chỉ lấy phần ngày của ngày hiện tại
+        String currentDate = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
         SQLiteDatabase db = dbHelper.getReadableDatabase();
         List<Card> cards = new ArrayList<>();
+
+        // Sử dụng hàm DATE() để trích xuất phần ngày từ next_review_date
         Cursor cursor = db.rawQuery(
-                "SELECT c.* FROM cards c JOIN reviews r ON c.id = r.card_id WHERE c.desk_id = ? AND r.next_review_date <= ? AND r.interval > 0",
+                "SELECT c.* FROM cards c JOIN reviews r ON c.id = r.card_id " +
+                        "WHERE c.desk_id = ? AND DATE(r.next_review_date) <= ? AND r.interval > 0",
                 new String[]{String.valueOf(deskId), currentDate}
         );
+
         if (cursor.moveToFirst()) {
             do {
                 Card card = new Card();
@@ -222,13 +231,6 @@ public class ReviewDao {
         return reviews;
     }
 
-    public void insertIdMapping(long localId, String serverId, String entityType) {
-        idMappingDao.insertIdMapping(new IdMapping((int) localId, serverId, entityType));
-    }
-
-    public Integer getLocalIdByServerId(String serverId, String entityType) {
-        return idMappingDao.getLocalIdByServerId(serverId, entityType);
-    }
 
     public void updateSyncStatus(int localId, String syncStatus) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();

@@ -5,6 +5,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.util.Log;
 
 import com.cntt2.flashcard.data.local.DatabaseHelper;
 import com.cntt2.flashcard.model.Card;
@@ -42,8 +43,18 @@ public class DeskDao {
 
     public int deleteDesk(int deskId) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
-        int rowsAffected = db.delete("desks", "id = ?", new String[]{String.valueOf(deskId)});
-        db.close();
+        int rowsAffected = 0;
+        try {
+            db.beginTransaction();
+            rowsAffected = db.delete("desks", "id = ?", new String[]{String.valueOf(deskId)});
+            db.setTransactionSuccessful();
+            Log.d("DeskDao", "Deleted desk - ID: " + deskId + ", rowsAffected: " + rowsAffected);
+        } catch (Exception e) {
+            Log.e("DeskDao", "Failed to delete desk - ID: " + deskId + ", error: " + e.getMessage());
+        } finally {
+            db.endTransaction();
+            db.close();
+        }
         return rowsAffected;
     }
 
@@ -134,35 +145,6 @@ public class DeskDao {
         return desks;
     }
 
-    public List<Desk> getPendingDesks(String syncStatus) {
-        List<Desk> desks = new ArrayList<>();
-        SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT * FROM desks WHERE sync_status = ?", new String[]{syncStatus});
-        if (cursor.moveToFirst()) {
-            do {
-                Desk desk = new Desk();
-                desk.setId(cursor.getInt(cursor.getColumnIndexOrThrow("id")));
-                desk.setFolderId(cursor.isNull(cursor.getColumnIndexOrThrow("folder_id")) ? null : cursor.getInt(cursor.getColumnIndexOrThrow("folder_id")));
-                desk.setName(cursor.getString(cursor.getColumnIndexOrThrow("name")));
-                desk.setPublic(cursor.getInt(cursor.getColumnIndexOrThrow("is_public")) == 1);
-                desk.setCreatedAt(cursor.getString(cursor.getColumnIndexOrThrow("created_at")));
-                desk.setLastModified(cursor.getString(cursor.getColumnIndexOrThrow("last_modified")));
-                desk.setSyncStatus(cursor.getString(cursor.getColumnIndexOrThrow("sync_status")));
-                desks.add(desk);
-            } while (cursor.moveToNext());
-        }
-        cursor.close();
-        db.close();
-        return desks;
-    }
-
-    public void insertIdMapping(long localId, String serverId, String entityType) {
-        idMappingDao.insertIdMapping(new IdMapping((int) localId, serverId, entityType));
-    }
-
-    public Integer getLocalIdByServerId(String serverId, String entityType) {
-        return idMappingDao.getLocalIdByServerId(serverId, entityType);
-    }
 
     public void updateSyncStatus(int localId, String syncStatus) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();

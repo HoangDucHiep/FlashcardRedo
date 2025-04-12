@@ -104,7 +104,7 @@ public class StudyActivity extends AppCompatActivity {
 
         currentSession = new LearningSession();
         currentSession.setDeskId(deskId);
-        String currentTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault()).format(new Date());
+        String currentTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault()).format(new Date());
         currentSession.setStartTime(currentTime);
         cardResponses = new HashMap<>();
 
@@ -235,7 +235,7 @@ public class StudyActivity extends AppCompatActivity {
     }
 
     private void completeSession() {
-        String endTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault()).format(new Date());
+        String endTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault()).format(new Date());
         currentSession.setEndTime(endTime);
         currentSession.setCardsStudied(cardResponses.size());
         currentSession.setPerformance((double) correctAnswers / cardResponses.size());
@@ -251,7 +251,7 @@ public class StudyActivity extends AppCompatActivity {
             Review review = reviewRepository.getReviewByCardId(cardId);
             if (review != null) {
                 updateReviewAfterStudy(review, quality);
-                reviewRepository.updateReview(review);
+                reviewRepository.updateReview(review, false);
             }
         }
 
@@ -329,8 +329,8 @@ public class StudyActivity extends AppCompatActivity {
         // Cập nhật ngày ôn tập tiếp theo
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.DAY_OF_YEAR, review.getInterval());
-        review.setNextReviewDate(new SimpleDateFormat("yyyy-MM-dd").format(calendar.getTime()));
-        review.setLastReviewed(new SimpleDateFormat("yyyy-MM-dd").format(new Date()));
+        review.setNextReviewDate(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS").format(calendar.getTime()));
+        review.setLastReviewed(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS").format(new Date()));
     }
 
     // Hàm gói nội dung HTML

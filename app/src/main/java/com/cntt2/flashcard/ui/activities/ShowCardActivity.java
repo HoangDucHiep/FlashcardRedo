@@ -284,7 +284,7 @@ public class ShowCardActivity extends AppCompatActivity {
             int selectedDeskId = (int) deskNames.get(selectedPosition).keySet().toArray()[0];
 
             card.setDeskId(selectedDeskId);
-            App.getInstance().getCardRepository().updateCard(card);
+            App.getInstance().getCardRepository().updateCard(card, false);
 
             Toast.makeText(this, "Đã di chuyển thẻ", Toast.LENGTH_SHORT).show();
             dialog.dismiss();

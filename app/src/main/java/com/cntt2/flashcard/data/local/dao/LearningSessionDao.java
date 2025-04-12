@@ -5,6 +5,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.util.Log;
 
 import com.cntt2.flashcard.data.local.DatabaseHelper;
 import com.cntt2.flashcard.model.IdMapping;
@@ -14,11 +15,9 @@ import java.util.ArrayList;
 import java.util.List;
 public class LearningSessionDao {
     private DatabaseHelper dbHelper;
-    private IdMappingDao idMappingDao;
 
     public LearningSessionDao(Context context) {
         dbHelper = new DatabaseHelper(context);
-        idMappingDao = new IdMappingDao(context);
     }
 
     public long insertLearningSession(LearningSession session) {
@@ -34,6 +33,51 @@ public class LearningSessionDao {
         long id = db.insert("learning_sessions", null, values);
         db.close();
         return id;
+    }
+
+    @SuppressLint("Range")
+    public LearningSession getSessionById(int id) {
+        LearningSession session = null;
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT * FROM learning_sessions WHERE id = ?", new String[]{String.valueOf(id)});
+        if (cursor.moveToFirst()) {
+            session = new LearningSession();
+            session.setId(cursor.getInt(cursor.getColumnIndexOrThrow("id")));
+            session.setDeskId(cursor.getInt(cursor.getColumnIndexOrThrow("desk_id")));
+            session.setStartTime(cursor.getString(cursor.getColumnIndexOrThrow("start_time")));
+            session.setEndTime(cursor.getString(cursor.getColumnIndexOrThrow("end_time")));
+            session.setCardsStudied(cursor.getInt(cursor.getColumnIndexOrThrow("cards_studied")));
+            session.setPerformance(cursor.getDouble(cursor.getColumnIndexOrThrow("performance")));
+            session.setLastModified(cursor.getString(cursor.getColumnIndexOrThrow("last_modified")));
+            session.setSyncStatus(cursor.getString(cursor.getColumnIndexOrThrow("sync_status")));
+        }
+        cursor.close();
+        db.close();
+        return session;
+    }
+
+    @SuppressLint("Range")
+    public List<LearningSession> getAllSessions() {
+        List<LearningSession> sessions = new ArrayList<>();
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT * FROM learning_sessions", null);
+        if (cursor.moveToFirst()) {
+            do {
+                LearningSession session = new LearningSession();
+                session.setId(cursor.getInt(cursor.getColumnIndexOrThrow("id")));
+                session.setDeskId(cursor.getInt(cursor.getColumnIndexOrThrow("desk_id")));
+                session.setStartTime(cursor.getString(cursor.getColumnIndexOrThrow("start_time")));
+                session.setEndTime(cursor.getString(cursor.getColumnIndexOrThrow("end_time")));
+                session.setCardsStudied(cursor.getInt(cursor.getColumnIndexOrThrow("cards_studied")));
+                session.setPerformance(cursor.getDouble(cursor.getColumnIndexOrThrow("performance")));
+                session.setLastModified(cursor.getString(cursor.getColumnIndexOrThrow("last_modified")));
+                session.setSyncStatus(cursor.getString(cursor.getColumnIndexOrThrow("sync_status")));
+                sessions.add(session);
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        db.close();
+        return sessions;
     }
 
     public void updateLearningSession(LearningSession session) {
@@ -76,8 +120,18 @@ public class LearningSessionDao {
 
     public int deleteLearningSession(int sessionId) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
-        int rowsAffected = db.delete("learning_sessions", "id = ?", new String[]{String.valueOf(sessionId)});
-        db.close();
+        int rowsAffected = 0;
+        try {
+            db.beginTransaction();
+            rowsAffected = db.delete("learning_sessions", "id = ?", new String[]{String.valueOf(sessionId)});
+            db.setTransactionSuccessful();
+            Log.d("LearningSessionDao", "Deleted session - ID: " + sessionId + ", rowsAffected: " + rowsAffected);
+        } catch (Exception e) {
+            Log.e("LearningSessionDao", "Failed to delete session - ID: " + sessionId + ", error: " + e.getMessage());
+        } finally {
+            db.endTransaction();
+            db.close();
+        }
         return rowsAffected;
     }
 
@@ -104,13 +158,6 @@ public class LearningSessionDao {
         return sessions;
     }
 
-    public void insertIdMapping(long localId, String serverId, String entityType) {
-        idMappingDao.insertIdMapping(new IdMapping((int) localId, serverId, entityType));
-    }
-
-    public Integer getLocalIdByServerId(String serverId, String entityType) {
-        return idMappingDao.getLocalIdByServerId(serverId, entityType);
-    }
 
     public void updateSyncStatus(int localId, String syncStatus) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();

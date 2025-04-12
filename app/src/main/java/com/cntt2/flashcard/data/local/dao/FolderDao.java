@@ -137,7 +137,7 @@ public class FolderDao {
 
         // Build the hierarchy
         for (Folder folder : allFolders) {
-            if (folder.getParentFolderId() != null) {
+            if (folder.getParentFolderId() != null && !Objects.equals(folder.getSyncStatus(), "pending_delete")) {
                 Folder parentFolder = folderMap.get(folder.getParentFolderId());
                 if (parentFolder != null) {
                     parentFolder.addSubFolder(folder);
@@ -157,35 +157,6 @@ public class FolderDao {
 
         db.close();
         return rootFolders;
-    }
-
-    public List<Folder> getPendingFolders(String syncStatus) {
-        List<Folder> folders = new ArrayList<>();
-        SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT * FROM folders WHERE sync_status = ?", new String[]{syncStatus});
-        if (cursor.moveToFirst()) {
-            do {
-                Folder folder = new Folder();
-                folder.setId(cursor.getInt(cursor.getColumnIndexOrThrow("id")));
-                folder.setParentFolderId(cursor.isNull(cursor.getColumnIndexOrThrow("parent_folder_id")) ? null : cursor.getInt(cursor.getColumnIndexOrThrow("parent_folder_id")));
-                folder.setName(cursor.getString(cursor.getColumnIndexOrThrow("name")));
-                folder.setCreatedAt(cursor.getString(cursor.getColumnIndexOrThrow("created_at")));
-                folder.setLastModified(cursor.getString(cursor.getColumnIndexOrThrow("last_modified")));
-                folder.setSyncStatus(cursor.getString(cursor.getColumnIndexOrThrow("sync_status")));
-                folders.add(folder);
-            } while (cursor.moveToNext());
-        }
-        cursor.close();
-        db.close();
-        return folders;
-    }
-
-    public void insertIdMapping(long localId, String serverId, String entityType) {
-        idMappingDao.insertIdMapping(new IdMapping((int) localId, serverId, entityType));
-    }
-
-    public Integer getLocalIdByServerId(String serverId, String entityType) {
-        return idMappingDao.getLocalIdByServerId(serverId, entityType);
     }
 
     public void updateSyncStatus(int localId, String syncStatus) {

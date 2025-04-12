@@ -18,16 +18,15 @@ public class IdMappingDao {
         this.dbHelper = new DatabaseHelper(context);
     }
 
-    // Thêm một ánh xạ mới
-    // Thêm một ánh xạ mới
-    public void insertIdMapping(IdMapping mapping) {
+    public long insertIdMapping(IdMapping mapping) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put("local_id", mapping.getLocalId());
         values.put("server_id", mapping.getServerId());
         values.put("entity_type", mapping.getEntityType());
-        db.insert("id_mapping", null, values);
+        long id = db.insert("id_mapping", null, values);
         db.close();
+        return id;
     }
 
     // Cập nhật một ánh xạ (dựa trên local_id và entity_type)
@@ -68,7 +67,6 @@ public class IdMappingDao {
         return mappings;
     }
 
-    // Lấy local_id từ server_id và entity_type
     public Integer getLocalIdByServerId(String serverId, String entityType) {
         SQLiteDatabase db = dbHelper.getReadableDatabase();
         Cursor cursor = db.rawQuery("SELECT local_id FROM id_mapping WHERE server_id = ? AND entity_type = ?",
@@ -82,7 +80,6 @@ public class IdMappingDao {
         return localId;
     }
 
-    // Lấy server_id từ local_id và entity_type
     public String getServerIdByLocalId(int localId, String entityType) {
         SQLiteDatabase db = dbHelper.getReadableDatabase();
         Cursor cursor = db.rawQuery("SELECT server_id FROM id_mapping WHERE local_id = ? AND entity_type = ?",
@@ -96,7 +93,6 @@ public class IdMappingDao {
         return serverId;
     }
 
-    // Lấy tất cả ánh xạ cho một entity_type cụ thể
     public List<IdMapping> getMappingsByEntityType(String entityType) {
         List<IdMapping> mappings = new ArrayList<>();
         SQLiteDatabase db = dbHelper.getReadableDatabase();

@@ -5,6 +5,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.util.Log;
 
 import com.cntt2.flashcard.data.local.DatabaseHelper;
 import com.cntt2.flashcard.model.Card;
@@ -52,8 +53,18 @@ public class CardDao {
 
     public int deleteCard(int cardId) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
-        int rowsAffected = db.delete("cards", "id = ?", new String[]{String.valueOf(cardId)});
-        db.close();
+        int rowsAffected = 0;
+        try {
+            db.beginTransaction();
+            rowsAffected = db.delete("cards", "id = ?", new String[]{String.valueOf(cardId)});
+            db.setTransactionSuccessful();
+            Log.d("CardDao", "Deleted card - ID: " + cardId + ", rowsAffected: " + rowsAffected);
+        } catch (Exception e) {
+            Log.e("CardDao", "Failed to delete card - ID: " + cardId + ", error: " + e.getMessage());
+        } finally {
+            db.endTransaction();
+            db.close();
+        }
         return rowsAffected;
     }
 
