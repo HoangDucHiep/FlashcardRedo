@@ -224,7 +224,7 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
 
                 card.setDeskId(selectedDeskId);
 
-                cardRepository.updateCard(card);
+                cardRepository.updateCard(card, false);
 
                 updateCardList();
                 dialog.dismiss();

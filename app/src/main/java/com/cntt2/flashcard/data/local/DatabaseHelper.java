@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "flashcard.db";
-    private static final int DATABASE_VERSION = 3;
+    private static final int DATABASE_VERSION = 4; // Tăng version để hỗ trợ đồng bộ
 
     public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -14,32 +14,39 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        // Create tables here
+        // Bảng folders
         db.execSQL("CREATE TABLE folders (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 "parent_folder_id INTEGER, " +
                 "name TEXT, " +
                 "created_at TEXT, " +
+                "last_modified TEXT, " + // Thêm để đồng bộ
+                "sync_status TEXT DEFAULT 'synced', " + // Thêm để đồng bộ
                 "FOREIGN KEY (parent_folder_id) REFERENCES folders(id))");
 
+        // Bảng desks
         db.execSQL("CREATE TABLE desks (" +
-                "id INTEGER PRIMARY KEY," +
-                "folder_id INTEGER," +
-                "name TEXT," +
-                "created_at TEXT," +
-                "is_public INTEGER DEFAULT 0," +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " + // Đổi thành AUTOINCREMENT để đồng bộ local
+                "folder_id INTEGER, " +
+                "name TEXT, " +
+                "created_at TEXT, " +
+                "is_public INTEGER DEFAULT 0, " +
+                "last_modified TEXT, " +
+                "sync_status TEXT DEFAULT 'synced', " +
                 "FOREIGN KEY(folder_id) REFERENCES folders(id))");
 
+        // Bảng cards (loại bỏ front_image và back_image)
         db.execSQL("CREATE TABLE cards (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 "desk_id INTEGER, " +
-                "front TEXT, " +
-                "back TEXT, " +
-                "front_image TEXT, " +
-                "back_image TEXT, " +
+                "front TEXT, " + // HTML chứa ảnh nếu có
+                "back TEXT, " +  // HTML chứa ảnh nếu có
                 "created_at TEXT, " +
+                "last_modified TEXT, " +
+                "sync_status TEXT DEFAULT 'synced', " +
                 "FOREIGN KEY (desk_id) REFERENCES desks(id))");
 
+        // Bảng reviews
         db.execSQL("CREATE TABLE reviews (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 "card_id INTEGER, " +
@@ -48,8 +55,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 "repetition INTEGER, " +
                 "next_review_date TEXT, " +
                 "last_reviewed TEXT, " +
+                "last_modified TEXT, " +
+                "sync_status TEXT DEFAULT 'synced', " +
                 "FOREIGN KEY (card_id) REFERENCES cards(id))");
 
+        // Bảng learning_sessions
         db.execSQL("CREATE TABLE learning_sessions (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 "desk_id INTEGER, " +
@@ -57,16 +67,69 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 "end_time TEXT, " +
                 "cards_studied INTEGER, " +
                 "performance REAL, " +
+                "last_modified TEXT, " +
+                "sync_status TEXT DEFAULT 'synced', " +
                 "FOREIGN KEY (desk_id) REFERENCES desks(id))");
+
+        // Bảng id_mapping để ánh xạ local_id và server_id
+        db.execSQL("CREATE TABLE id_mapping (" +
+                "local_id INTEGER, " +
+                "server_id TEXT, " +
+                "entity_type TEXT, " + // 'folder', 'desk', 'card', 'review', 'session'
+                "PRIMARY KEY (local_id, entity_type))");
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        db.execSQL("DROP TABLE IF EXISTS learning_sessions");
-        db.execSQL("DROP TABLE IF EXISTS reviews");
-        db.execSQL("DROP TABLE IF EXISTS cards");
-        db.execSQL("DROP TABLE IF EXISTS desks");
-        db.execSQL("DROP TABLE IF EXISTS folders");
-        onCreate(db);
+        if (oldVersion < 4) {
+            // Thêm cột last_modified và sync_status cho các bảng cũ
+            db.execSQL("ALTER TABLE folders ADD COLUMN last_modified TEXT");
+            db.execSQL("ALTER TABLE folders ADD COLUMN sync_status TEXT DEFAULT 'synced'");
+            db.execSQL("ALTER TABLE desks ADD COLUMN last_modified TEXT");
+            db.execSQL("ALTER TABLE desks ADD COLUMN sync_status TEXT DEFAULT 'synced'");
+            db.execSQL("ALTER TABLE cards ADD COLUMN last_modified TEXT");
+            db.execSQL("ALTER TABLE cards ADD COLUMN sync_status TEXT DEFAULT 'synced'");
+            db.execSQL("ALTER TABLE reviews ADD COLUMN last_modified TEXT");
+            db.execSQL("ALTER TABLE reviews ADD COLUMN sync_status TEXT DEFAULT 'synced'");
+            db.execSQL("ALTER TABLE learning_sessions ADD COLUMN last_modified TEXT");
+            db.execSQL("ALTER TABLE learning_sessions ADD COLUMN sync_status TEXT DEFAULT 'synced'");
+
+            // Xóa cột front_image và back_image từ bảng cards
+            db.execSQL("CREATE TABLE cards_temp (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "desk_id INTEGER, " +
+                    "front TEXT, " +
+                    "back TEXT, " +
+                    "created_at TEXT, " +
+                    "last_modified TEXT, " +
+                    "sync_status TEXT DEFAULT 'synced', " +
+                    "FOREIGN KEY (desk_id) REFERENCES desks(id))");
+            db.execSQL("INSERT INTO cards_temp (id, desk_id, front, back, created_at, last_modified, sync_status) " +
+                    "SELECT id, desk_id, front, back, created_at, last_modified, sync_status FROM cards");
+            db.execSQL("DROP TABLE cards");
+            db.execSQL("ALTER TABLE cards_temp RENAME TO cards");
+
+            // Thêm bảng id_mapping
+            db.execSQL("CREATE TABLE id_mapping (" +
+                    "local_id INTEGER, " +
+                    "server_id TEXT, " +
+                    "entity_type TEXT, " +
+                    "PRIMARY KEY (local_id, entity_type))");
+
+            // Đổi desks.id thành AUTOINCREMENT (tạo bảng tạm)
+            db.execSQL("CREATE TABLE desks_temp (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "folder_id INTEGER, " +
+                    "name TEXT, " +
+                    "created_at TEXT, " +
+                    "is_public INTEGER DEFAULT 0, " +
+                    "last_modified TEXT, " +
+                    "sync_status TEXT DEFAULT 'synced', " +
+                    "FOREIGN KEY(folder_id) REFERENCES folders(id))");
+            db.execSQL("INSERT INTO desks_temp (id, folder_id, name, created_at, is_public, last_modified, sync_status) " +
+                    "SELECT id, folder_id, name, created_at, is_public, last_modified, sync_status FROM desks");
+            db.execSQL("DROP TABLE desks");
+            db.execSQL("ALTER TABLE desks_temp RENAME TO desks");
+        }
     }
 }

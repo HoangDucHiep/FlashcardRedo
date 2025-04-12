@@ -141,7 +141,7 @@ public class HomeFragment extends Fragment {
 
     private void handlePublicDesk(Desk desk) {
         desk.setPublic(!desk.isPublic());
-        deskRepository.updateDesk(desk);
+        deskRepository.updateDesk(desk, false);
         nestedFoldersDesks = getFoldersFromLocalDb();  // Cập nhật danh sách
         adapter.updateFolderList(nestedFoldersDesks);  // Cập nhật giao diện
         Toast.makeText(getContext(), "Desk visibility updated", Toast.LENGTH_SHORT).show();
@@ -196,7 +196,7 @@ public class HomeFragment extends Fragment {
             }
 
             folder.setName(newName);  // Cập nhật tên mới
-            folderRepository.updateFolder(folder);  // Lưu vào cơ sở dữ liệu
+            folderRepository.updateFolder(folder, false);  // Lưu vào cơ sở dữ liệu
 
             // **Sửa đổi ở đây**: Tải lại dữ liệu và cập nhật adapter
             nestedFoldersDesks = getFoldersFromLocalDb();  // Lấy cấu trúc folder mới từ cơ sở dữ liệu
@@ -269,7 +269,7 @@ public class HomeFragment extends Fragment {
             Folder parentFolder = allFolders.get(selectedPosition - 1);
             desk.setFolderId(parentFolder.getId());
             desk.setName(newName);  // Cập nhật tên mới
-            deskRepository.updateDesk(desk);  // Lưu vào cơ sở dữ liệu
+            deskRepository.updateDesk(desk, false);  // Lưu vào cơ sở dữ liệu
 
             nestedFoldersDesks = getFoldersFromLocalDb();  // Lấy cấu trúc folder mới từ cơ sở dữ liệu
             adapter.updateFolderList(nestedFoldersDesks);  // Cập nhật dữ liệu trong adapter
@@ -350,7 +350,7 @@ public class HomeFragment extends Fragment {
     }
 
     private void createNewFolder(String folderName, int selectedPosition) {
-        String createdAt = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+        String createdAt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault()).format(new Date());
         Folder newFolder = new Folder(folderName, createdAt);
         List<Folder> allFolders = getAllFoldersList();
 
@@ -407,7 +407,7 @@ public class HomeFragment extends Fragment {
     }
 
     private void createNewDesk(String deckName, int selectedPosition) {
-        String createdAt = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+        String createdAt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault()).format(new Date());
         Desk newDesk = new Desk(deckName, 0, createdAt);
         List<Folder> allFolders = getAllFoldersList();
         Folder parentFolder = allFolders.get(selectedPosition - 1);

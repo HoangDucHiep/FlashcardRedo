@@ -475,7 +475,7 @@ public class AddCardActivity extends AppCompatActivity {
             return;
         }
 
-        String currentDate = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault()).format(new Date());
+        String currentDate = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault()).format(new Date());
 
         if (isEditMode) {
             // Chế độ chỉnh sửa
@@ -483,7 +483,7 @@ public class AddCardActivity extends AppCompatActivity {
                 existingCard.setFront(frontText);
                 existingCard.setBack(backText);
                 existingCard.setCreatedAt(currentDate); // Cập nhật thời gian (tùy chọn)
-                cardRepository.updateCard(existingCard);
+                cardRepository.updateCard(existingCard, false);
                 manageImageFiles(frontText + backText);
                 Toast.makeText(this, "Card updated successfully", Toast.LENGTH_SHORT).show();
             }

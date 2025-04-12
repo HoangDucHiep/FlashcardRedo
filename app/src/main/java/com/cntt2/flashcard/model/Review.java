@@ -2,13 +2,15 @@ package com.cntt2.flashcard.model;
 
 public class Review {
     private int id;
+    private String serverId;
     private int cardId;
     private double ease;
     private int interval;
     private int repetition;
     private String nextReviewDate;
     private String lastReviewed;
-
+    private String lastModified;
+    private String syncStatus;
 
     public Review() {}
 
@@ -18,6 +20,42 @@ public class Review {
         this.interval = interval;
         this.repetition = repetition;
         this.nextReviewDate = nextReviewDate;
+    }
+
+    public Review(int cardId, double ease, int interval, int repetition, String nextReviewDate,
+                  String lastReviewed, String lastModified, String syncStatus) {
+        this.cardId = cardId;
+        this.ease = ease;
+        this.interval = interval;
+        this.repetition = repetition;
+        this.nextReviewDate = nextReviewDate;
+        this.lastReviewed = lastReviewed;
+        this.lastModified = lastModified;
+        this.syncStatus = syncStatus;
+    }
+
+    public String getServerId() {
+        return serverId;
+    }
+
+    public void setServerId(String serverId) {
+        this.serverId = serverId;
+    }
+
+    public String getLastModified() {
+        return lastModified;
+    }
+
+    public void setLastModified(String lastModified) {
+        this.lastModified = lastModified;
+    }
+
+    public String getSyncStatus() {
+        return syncStatus;
+    }
+
+    public void setSyncStatus(String syncStatus) {
+        this.syncStatus = syncStatus;
     }
 
     public int getId() {
