@@ -333,7 +333,7 @@ public class StudyActivity extends AppCompatActivity {
         review.setLastReviewed(new SimpleDateFormat("yyyy-MM-dd").format(new Date()));
     }
 
-    // Hàm gói nội dung HTML
+    // Hàm gói nội dung HTML kb
     private String wrapHtml(String content) {
         if (content == null) {
             content = "";
