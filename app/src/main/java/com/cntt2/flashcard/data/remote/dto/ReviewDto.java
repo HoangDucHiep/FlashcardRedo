@@ -1,7 +1,7 @@
 package com.cntt2.flashcard.data.remote.dto;
 
 public class ReviewDto {
-    private String id;
+    private String id; // Nullable cho POST
     private String cardId;
     private double ease;
     private int interval;

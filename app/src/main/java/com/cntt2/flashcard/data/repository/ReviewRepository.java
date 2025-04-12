@@ -1,10 +1,8 @@
 package com.cntt2.flashcard.data.repository;
 
-
 import android.content.Context;
 import android.util.Log;
 
-import com.cntt2.flashcard.data.local.dao.IdMappingDao;
 import com.cntt2.flashcard.data.local.dao.ReviewDao;
 import com.cntt2.flashcard.model.Card;
 import com.cntt2.flashcard.model.IdMapping;
@@ -38,8 +36,13 @@ public class ReviewRepository {
             review.setSyncStatus("synced");
         }
         long localId = reviewDao.insertReview(review);
-        if (review.getServerId() != null) {
-            idMappingRepository.insertIdMapping(new IdMapping((int) localId, review.getServerId(), "review"));
+        if (localId != -1) {
+            Log.d(TAG, "Inserted review - localId: " + localId + ", cardId: " + review.getCardId() + ", syncStatus: " + review.getSyncStatus());
+            if (review.getServerId() != null) {
+                idMappingRepository.insertIdMapping(new IdMapping((int) localId, review.getServerId(), "review"));
+            }
+        } else {
+            Log.e(TAG, "Failed to insert review for cardId: " + review.getCardId());
         }
         return localId;
     }
@@ -52,6 +55,9 @@ public class ReviewRepository {
                 review.setSyncStatus("pending_update");
             }
             reviewDao.updateReview(review);
+            Log.d(TAG, "Updated review - ID: " + review.getId() + ", syncStatus: " + review.getSyncStatus() + ", fromSync: " + fromSync);
+        } else {
+            Log.w(TAG, "No existing review found to update - ID: " + review.getId());
         }
     }
 
@@ -61,21 +67,22 @@ public class ReviewRepository {
             review.setSyncStatus("pending_delete");
             updateReview(review, false);
             Log.d(TAG, "Marked review for deletion - ID: " + reviewId);
+        } else {
+            Log.w(TAG, "No review found to mark for deletion - ID: " + reviewId);
         }
     }
 
     public void deleteReviewConfirmed(int reviewId) {
         try {
             int rowsAffected = reviewDao.deleteReview(reviewId);
+            idMappingRepository.deleteIdMapping(reviewId, "review");
             if (rowsAffected > 0) {
-                idMappingRepository.deleteIdMapping(reviewId, "review");
-                Log.d(TAG, "Successfully deleted review and mapping - ID: " + reviewId);
+                Log.d(TAG, "Successfully deleted review - ID: " + reviewId);
             } else {
                 Log.w(TAG, "No review found to delete - ID: " + reviewId);
-                idMappingRepository.deleteIdMapping(reviewId, "review");
             }
         } catch (Exception e) {
-            Log.e(TAG, "Failed to delete review - ID: " + reviewId + ", error: " + e.getMessage());
+            Log.e(TAG, "Failed to delete review - ID: " + reviewId + ", error: " + e.getMessage(), e);
             throw new RuntimeException("Failed to delete review: " + e.getMessage());
         }
     }
@@ -91,12 +98,19 @@ public class ReviewRepository {
     public List<Card> getCardsToReview(int deskId) {
         List<Card> cards = reviewDao.getCardsToReview(deskId);
         cards.removeIf(card -> "pending_delete".equals(card.getSyncStatus()));
+        Log.d(TAG, "Retrieved " + cards.size() + " cards to review for deskId: " + deskId);
         return new ArrayList<>(cards);
     }
 
+    public List<Review> getAllReviews() {
+        List<Review> reviews = reviewDao.getAllReviews();
+        Log.d(TAG, "Retrieved " + reviews.size() + " reviews");
+        return new ArrayList<>(reviews);
+    }
     public List<Card> getNewCards(int deskId) {
         List<Card> cards = reviewDao.getNewCards(deskId);
         cards.removeIf(card -> "pending_delete".equals(card.getSyncStatus()));
+        Log.d(TAG, "Retrieved " + cards.size() + " new cards for deskId: " + deskId);
         return new ArrayList<>(cards);
     }
 
@@ -105,7 +119,7 @@ public class ReviewRepository {
         if (review == null) {
             Log.w(TAG, "No review found for card - ID: " + cardId);
         }
-        return review; // Bỏ lọc pending_delete
+        return review;
     }
 
     public void updateSyncStatus(int localId, String syncStatus) {
@@ -113,11 +127,14 @@ public class ReviewRepository {
         if (review != null) {
             review.setSyncStatus(syncStatus);
             reviewDao.updateReview(review);
+            Log.d(TAG, "Updated syncStatus for review - ID: " + localId + ", syncStatus: " + syncStatus);
         }
     }
 
     public List<Review> getPendingReviews(String syncStatus) {
-        return reviewDao.getPendingReviews(syncStatus);
+        List<Review> reviews = reviewDao.getPendingReviews(syncStatus);
+        Log.d(TAG, "Retrieved " + reviews.size() + " pending reviews with syncStatus: " + syncStatus);
+        return reviews;
     }
 
     private boolean nullSafeEquals(Integer a, Integer b) {

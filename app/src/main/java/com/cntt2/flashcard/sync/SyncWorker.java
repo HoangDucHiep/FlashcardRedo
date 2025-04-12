@@ -22,11 +22,32 @@ public class SyncWorker extends Worker {
             @Override
             public void onSuccess() {
                 Log.d(TAG, "Folder sync completed successfully");
-                // Sau khi Folder hoàn tất, đồng bộ Desk
                 syncManager.syncDesks(new SyncManager.SyncCallback() {
                     @Override
                     public void onSuccess() {
                         Log.d(TAG, "Desk sync completed successfully");
+                        syncManager.syncCards(new SyncManager.SyncCallback() {
+                            @Override
+                            public void onSuccess() {
+                                Log.d(TAG, "Card sync completed successfully");
+                                syncManager.syncReviews(new SyncManager.SyncCallback() {
+                                    @Override
+                                    public void onSuccess() {
+                                        Log.d(TAG, "Review sync completed successfully");
+                                    }
+
+                                    @Override
+                                    public void onFailure(String error) {
+                                        Log.e(TAG, "Review sync failed: " + error);
+                                    }
+                                });
+                            }
+
+                            @Override
+                            public void onFailure(String error) {
+                                Log.e(TAG, "Card sync failed: " + error);
+                            }
+                        });
                     }
 
                     @Override

@@ -86,19 +86,19 @@ public interface ApiService {
 
     // Review endpoints
     @POST("api/review")
-    Call<ReviewDto> createReview(@Body ReviewDto review);
+    Call<ReviewDto> createReview(@Body ReviewDto reviewDto);
 
     @GET("api/review/card/{cardId}")
     Call<ReviewDto> getReviewByCardId(@Path("cardId") String cardId);
 
-    @GET("api/review/due-today")
-    Call<List<ReviewDto>> getReviewsDueToday(@Query("deskId") String deskId, @Query("today") String today);
-
     @PUT("api/review/{id}")
-    Call<Void> updateReview(@Path("id") String id, @Body ReviewDto review);
+    Call<Void> updateReview(@Path("id") String id, @Body ReviewDto reviewDto);
 
     @DELETE("api/review/{id}")
     Call<Void> deleteReview(@Path("id") String id);
+
+    @GET("api/review/due-today")
+    Call<List<ReviewDto>> getReviewsDueToday(@Query("deskId") String deskId, @Query("today") String today);
 
     // Session endpoints
     @POST("api/session")

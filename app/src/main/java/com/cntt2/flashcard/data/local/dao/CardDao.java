@@ -23,7 +23,6 @@ public class CardDao {
         idMappingDao = new IdMappingDao(context);
     }
 
-
     public long insertCard(Card card) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -35,6 +34,7 @@ public class CardDao {
         values.put("sync_status", card.getSyncStatus());
         long id = db.insert("cards", null, values);
         db.close();
+        Log.d("CardDao", "Inserted card - ID: " + id);
         return id;
     }
 
@@ -49,6 +49,7 @@ public class CardDao {
         values.put("sync_status", card.getSyncStatus());
         db.update("cards", values, "id = ?", new String[]{String.valueOf(card.getId())});
         db.close();
+        Log.d("CardDao", "Updated card - ID: " + card.getId());
     }
 
     public int deleteCard(int cardId) {
@@ -60,7 +61,7 @@ public class CardDao {
             db.setTransactionSuccessful();
             Log.d("CardDao", "Deleted card - ID: " + cardId + ", rowsAffected: " + rowsAffected);
         } catch (Exception e) {
-            Log.e("CardDao", "Failed to delete card - ID: " + cardId + ", error: " + e.getMessage());
+            Log.e("CardDao", "Failed to delete card - ID: " + cardId + ", error: " + e.getMessage(), e);
         } finally {
             db.endTransaction();
             db.close();
@@ -88,6 +89,7 @@ public class CardDao {
         }
         cursor.close();
         db.close();
+        Log.d("CardDao", "Retrieved " + cards.size() + " cards for deskId: " + deskId);
         return cards;
     }
 
@@ -131,6 +133,7 @@ public class CardDao {
         }
         cursor.close();
         db.close();
+        Log.d("CardDao", "Retrieved " + cards.size() + " total cards");
         return cards;
     }
 
@@ -153,15 +156,19 @@ public class CardDao {
         }
         cursor.close();
         db.close();
+        Log.d("CardDao", "Retrieved " + cards.size() + " pending cards with syncStatus: " + syncStatus);
         return cards;
     }
 
     public void insertIdMapping(long localId, String serverId, String entityType) {
         idMappingDao.insertIdMapping(new IdMapping((int) localId, serverId, entityType));
+        Log.d("CardDao", "Inserted ID mapping - localId: " + localId + ", serverId: " + serverId + ", entityType: " + entityType);
     }
 
     public Integer getLocalIdByServerId(String serverId, String entityType) {
-        return idMappingDao.getLocalIdByServerId(serverId, entityType);
+        Integer localId = idMappingDao.getLocalIdByServerId(serverId, entityType);
+        Log.d("CardDao", "Retrieved localId: " + localId + " for serverId: " + serverId + ", entityType: " + entityType);
+        return localId;
     }
 
     public void updateSyncStatus(int localId, String syncStatus) {
@@ -170,6 +177,6 @@ public class CardDao {
         values.put("sync_status", syncStatus);
         db.update("cards", values, "id = ?", new String[]{String.valueOf(localId)});
         db.close();
+        Log.d("CardDao", "Updated syncStatus for card - ID: " + localId + ", syncStatus: " + syncStatus);
     }
-
 }

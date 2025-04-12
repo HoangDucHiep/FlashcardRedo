@@ -40,6 +40,7 @@ public class ReviewDao {
         values.put("sync_status", review.getSyncStatus());
         long id = db.insert("reviews", null, values);
         db.close();
+        Log.d("ReviewDao", "Inserted review - ID: " + id);
         return id;
     }
 
@@ -56,6 +57,7 @@ public class ReviewDao {
         values.put("sync_status", review.getSyncStatus());
         db.update("reviews", values, "id = ?", new String[]{String.valueOf(review.getId())});
         db.close();
+        Log.d("ReviewDao", "Updated review - ID: " + review.getId());
     }
 
     public int deleteReview(int reviewId) {
@@ -67,7 +69,7 @@ public class ReviewDao {
             db.setTransactionSuccessful();
             Log.d("ReviewDao", "Deleted review - ID: " + reviewId + ", rowsAffected: " + rowsAffected);
         } catch (Exception e) {
-            Log.e("ReviewDao", "Failed to delete review - ID: " + reviewId + ", error: " + e.getMessage());
+            Log.e("ReviewDao", "Failed to delete review - ID: " + reviewId + ", error: " + e.getMessage(), e);
         } finally {
             db.endTransaction();
             db.close();
@@ -94,6 +96,30 @@ public class ReviewDao {
         cursor.close();
         db.close();
         return review;
+    }
+
+    public List<Review> getAllReviews() {
+        List<Review> reviews = new ArrayList<>();
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT * FROM reviews", null);
+        if (cursor.moveToFirst()) {
+            do {
+                Review review = new Review();
+                review.setId(cursor.getInt(cursor.getColumnIndexOrThrow("id")));
+                review.setCardId(cursor.getInt(cursor.getColumnIndexOrThrow("card_id")));
+                review.setEase(cursor.getDouble(cursor.getColumnIndexOrThrow("ease")));
+                review.setInterval(cursor.getInt(cursor.getColumnIndexOrThrow("interval")));
+                review.setRepetition(cursor.getInt(cursor.getColumnIndexOrThrow("repetition")));
+                review.setNextReviewDate(cursor.getString(cursor.getColumnIndexOrThrow("next_review_date")));
+                review.setLastReviewed(cursor.getString(cursor.getColumnIndexOrThrow("last_reviewed")));
+                review.setLastModified(cursor.getString(cursor.getColumnIndexOrThrow("last_modified")));
+                review.setSyncStatus(cursor.getString(cursor.getColumnIndexOrThrow("sync_status")));
+                reviews.add(review);
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        db.close();
+        return reviews;
     }
 
     public List<Review> getReviewsByCardId(int cardId) {
@@ -129,7 +155,7 @@ public class ReviewDao {
             review = new Review();
             review.setId(cursor.getInt(cursor.getColumnIndexOrThrow("id")));
             review.setCardId(cursor.getInt(cursor.getColumnIndexOrThrow("card_id")));
-            review.setEase(cursor.getFloat(cursor.getColumnIndexOrThrow("ease")));
+            review.setEase(cursor.getDouble(cursor.getColumnIndexOrThrow("ease")));
             review.setInterval(cursor.getInt(cursor.getColumnIndexOrThrow("interval")));
             review.setRepetition(cursor.getInt(cursor.getColumnIndexOrThrow("repetition")));
             review.setNextReviewDate(cursor.getString(cursor.getColumnIndexOrThrow("next_review_date")));
@@ -144,18 +170,16 @@ public class ReviewDao {
 
     @SuppressLint("Range")
     public List<Card> getCardsToReview(int deskId) {
-        // Chỉ lấy phần ngày của ngày hiện tại
-        String currentDate = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+        String currentDate = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault())
+                .format(new Date());
         SQLiteDatabase db = dbHelper.getReadableDatabase();
         List<Card> cards = new ArrayList<>();
-
-        // Sử dụng hàm DATE() để trích xuất phần ngày từ next_review_date
         Cursor cursor = db.rawQuery(
                 "SELECT c.* FROM cards c JOIN reviews r ON c.id = r.card_id " +
-                        "WHERE c.desk_id = ? AND DATE(r.next_review_date) <= ? AND r.interval > 0",
+                        "WHERE c.desk_id = ? AND r.next_review_date <= ? AND r.interval > 0 " +
+                        "AND c.sync_status != 'pending_delete'",
                 new String[]{String.valueOf(deskId), currentDate}
         );
-
         if (cursor.moveToFirst()) {
             do {
                 Card card = new Card();
@@ -179,7 +203,8 @@ public class ReviewDao {
         SQLiteDatabase db = dbHelper.getReadableDatabase();
         List<Card> cards = new ArrayList<>();
         Cursor cursor = db.rawQuery(
-                "SELECT c.* FROM cards c JOIN reviews r ON c.id = r.card_id WHERE c.desk_id = ? AND r.interval = 0",
+                "SELECT c.* FROM cards c JOIN reviews r ON c.id = r.card_id " +
+                        "WHERE c.desk_id = ? AND r.interval = 0 AND c.sync_status != 'pending_delete'",
                 new String[]{String.valueOf(deskId)}
         );
         if (cursor.moveToFirst()) {
@@ -204,6 +229,7 @@ public class ReviewDao {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         int deletedRows = db.delete("reviews", "card_id = ?", new String[]{String.valueOf(cardId)});
         db.close();
+        Log.d("ReviewDao", "Deleted reviews for cardId: " + cardId + ", rows: " + deletedRows);
         return deletedRows;
     }
 
@@ -228,9 +254,9 @@ public class ReviewDao {
         }
         cursor.close();
         db.close();
+        Log.d("ReviewDao", "Retrieved " + reviews.size() + " pending reviews with syncStatus: " + syncStatus);
         return reviews;
     }
-
 
     public void updateSyncStatus(int localId, String syncStatus) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
@@ -238,5 +264,6 @@ public class ReviewDao {
         values.put("sync_status", syncStatus);
         db.update("reviews", values, "id = ?", new String[]{String.valueOf(localId)});
         db.close();
+        Log.d("ReviewDao", "Updated syncStatus for review - ID: " + localId + ", syncStatus: " + syncStatus);
     }
 }
