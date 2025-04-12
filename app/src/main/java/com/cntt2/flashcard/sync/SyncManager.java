@@ -11,23 +11,28 @@ import com.cntt2.flashcard.data.remote.dto.DeskDto;
 import com.cntt2.flashcard.data.remote.dto.GetFolderDto;
 import com.cntt2.flashcard.data.remote.dto.PostFolderDto;
 import com.cntt2.flashcard.data.remote.dto.ReviewDto;
+import com.cntt2.flashcard.data.remote.dto.SessionDto;
 import com.cntt2.flashcard.data.repository.CardRepository;
 import com.cntt2.flashcard.data.repository.DeskRepository;
 import com.cntt2.flashcard.data.repository.FolderRepository;
 import com.cntt2.flashcard.data.repository.IdMappingRepository;
+import com.cntt2.flashcard.data.repository.LearningSessionRepository;
 import com.cntt2.flashcard.data.repository.ReviewRepository;
 import com.cntt2.flashcard.model.Card;
 import com.cntt2.flashcard.model.Desk;
 import com.cntt2.flashcard.model.Folder;
 import com.cntt2.flashcard.model.IdMapping;
+import com.cntt2.flashcard.model.LearningSession;
 import com.cntt2.flashcard.model.Review;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.TimeZone;
 
 import retrofit2.Call;
@@ -41,6 +46,7 @@ public class SyncManager {
     private final CardRepository cardRepository;
     private final ReviewRepository reviewRepository;
     private final IdMappingRepository idMappingRepository;
+    private final LearningSessionRepository sessionRepository;
     private final ApiService apiService;
     private final SimpleDateFormat dateFormat;
     private final SimpleDateFormat minuteFormat;
@@ -50,6 +56,7 @@ public class SyncManager {
         this.deskRepository = App.getInstance().getDeskRepository();
         this.cardRepository = App.getInstance().getCardRepository();
         this.reviewRepository = App.getInstance().getReviewRepository();
+        this.sessionRepository = App.getInstance().getLearningSessionRepository(); // Thêm dòng này
         this.idMappingRepository = new IdMappingRepository(context);
         this.apiService = ApiClient.getApiService();
         this.dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault());
@@ -801,9 +808,9 @@ public class SyncManager {
                         Card localCard = localId != null ? cardRepository.getCardById(localId) : null;
 
                         try {
-                            // Lấy trực tiếp String từ serverCard
                             String serverLastModifiedStr = String.valueOf(serverCard.getLastModified());
-                            String serverCreatedAtStr = String.valueOf(serverCard.getCreatedAt());
+                            Date serverLastModified = parseFlexibleDate(serverLastModifiedStr);
+                            String formattedLastModified = dateFormat.format(serverLastModified);
 
                             if (localCard == null) {
                                 Card newCard = new Card();
@@ -811,15 +818,13 @@ public class SyncManager {
                                 newCard.setDeskId(desk.getId());
                                 newCard.setFront(serverCard.getFront());
                                 newCard.setBack(serverCard.getBack());
-                                newCard.setCreatedAt(serverCreatedAtStr); // Truyền String trực tiếp
-                                newCard.setLastModified(serverLastModifiedStr); // Truyền String trực tiếp
+                                newCard.setCreatedAt(dateFormat.format(parseFlexibleDate(String.valueOf(serverCard.getCreatedAt()))));
+                                newCard.setLastModified(formattedLastModified);
                                 newCard.setSyncStatus("synced");
-                                long newLocalId = cardRepository.insertCard(newCard);
+                                long newLocalId = cardRepository.insertCard(newCard, true);
                                 idMappingRepository.insertIdMappingSafe(new IdMapping((int) newLocalId, serverCardId, "card"));
                                 Log.d(TAG, "Inserted new card with serverId: " + serverCardId);
                             } else {
-                                // Parse để so sánh thời gian
-                                Date serverLastModified = dateFormat.parse(serverLastModifiedStr);
                                 Date localLastModified = dateFormat.parse(localCard.getLastModified());
                                 serverLastModified = truncateToMinute(serverLastModified);
                                 localLastModified = truncateToMinute(localLastModified);
@@ -831,8 +836,7 @@ public class SyncManager {
                                 if (serverLastModified.after(localLastModified) && !"pending_update".equals(localCard.getSyncStatus())) {
                                     localCard.setFront(serverCard.getFront());
                                     localCard.setBack(serverCard.getBack());
-                                    localCard.setCreatedAt(serverCreatedAtStr); // Truyền String
-                                    localCard.setLastModified(serverLastModifiedStr); // Truyền String
+                                    localCard.setLastModified(formattedLastModified);
                                     cardRepository.updateCard(localCard, true);
                                     cardRepository.updateSyncStatus(localCard.getId(), "synced");
                                     Log.d(TAG, "Updated card with localId: " + localCard.getId());
@@ -841,8 +845,8 @@ public class SyncManager {
                                     Log.d(TAG, "Local card is newer, marked as pending_update: " + localCard.getId());
                                 }
                             }
-                        } catch (ParseException e) {
-                            Log.e(TAG, "Error parsing date for card in deskId: " + serverDeskId + ": " + e.getMessage());
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error processing card for deskId: " + serverDeskId + ": " + e.getMessage());
                         }
                     }
 
@@ -1065,64 +1069,31 @@ public class SyncManager {
         });
     }
 
-    private void cleanUpOrphanedReviews(final SyncCallback callback) {
-        Log.d(TAG, "Cleaning up orphaned reviews...");
-        List<Card> cards = cardRepository.getAllCards();
-        List<Review> allReviews = reviewRepository.getAllReviews();
-        for (Review review : allReviews) {
-            boolean hasCard = false;
-            for (Card card : cards) {
-                if (card.getId() == review.getCardId()) {
-                    hasCard = true;
-                    break;
-                }
-            }
-            if (!hasCard) {
-                reviewRepository.deleteReviewConfirmed(review.getId());
-                Log.d(TAG, "Deleted orphaned review with localId: " + review.getId());
-            }
-        }
-        Log.d(TAG, "Orphaned reviews cleanup completed");
-        callback.onSuccess();
-    }
-
-
-    // SYNC REVIEW SECTION
-    // SYNC REVIEW SECTION
+    // REVIEW SYNC SECTION
     public void syncReviews(final SyncCallback callback) {
         Log.d(TAG, "Starting review sync...");
-        cleanUpOrphanedReviews(new SyncCallback() {
+        pushReviewsToServer(new SyncCallback() {
             @Override
             public void onSuccess() {
                 pullReviewsFromServer(new SyncCallback() {
                     @Override
                     public void onSuccess() {
-                        pushReviewsToServer(new SyncCallback() {
-                            @Override
-                            public void onSuccess() {
-                                List<Review> pendingReviews = new ArrayList<>();
-                                pendingReviews.addAll(reviewRepository.getPendingReviews("pending_create"));
-                                pendingReviews.addAll(reviewRepository.getPendingReviews("pending_update"));
-                                pendingReviews.addAll(reviewRepository.getPendingReviews("pending_delete"));
-                                if (!pendingReviews.isEmpty()) {
-                                    Log.d(TAG, "Pending reviews remain: " + pendingReviews.size());
-                                    for (Review review : pendingReviews) {
-                                        Log.d(TAG, "Pending review - ID: " + review.getId() +
-                                                ", CardId: " + review.getCardId() +
-                                                ", SyncStatus: " + review.getSyncStatus());
-                                    }
-                                    syncReviews(callback);
-                                } else {
-                                    Log.d(TAG, "Review sync completed successfully");
-                                    callback.onSuccess();
-                                }
+                        List<Review> pendingReviews = new ArrayList<>();
+                        pendingReviews.addAll(reviewRepository.getPendingReviews("pending_create"));
+                        pendingReviews.addAll(reviewRepository.getPendingReviews("pending_update"));
+                        pendingReviews.addAll(reviewRepository.getPendingReviews("pending_delete"));
+                        if (!pendingReviews.isEmpty()) {
+                            Log.d(TAG, "Pending reviews remain: " + pendingReviews.size());
+                            for (Review review : pendingReviews) {
+                                Log.d(TAG, "Pending review - ID: " + review.getId() +
+                                        ", CardId: " + review.getCardId() +
+                                        ", SyncStatus: " + review.getSyncStatus());
                             }
-
-                            @Override
-                            public void onFailure(String error) {
-                                callback.onFailure(error);
-                            }
-                        });
+                            syncReviews(callback); // Retry until no pending reviews
+                        } else {
+                            Log.d(TAG, "Review sync completed successfully");
+                            callback.onSuccess();
+                        }
                     }
 
                     @Override
@@ -1141,14 +1112,16 @@ public class SyncManager {
 
     private void pullReviewsFromServer(final SyncCallback callback) {
         Log.d(TAG, "Pulling reviews from server...");
+        cleanOrphanedReviews();
+
         List<Card> cards = cardRepository.getAllCards();
+        Log.d(TAG, "Processing " + cards.size() + " cards for review sync");
         if (cards.isEmpty()) {
             Log.d(TAG, "No cards found, skipping review sync");
             callback.onSuccess();
             return;
         }
 
-        Log.d(TAG, "Processing " + cards.size() + " cards for review sync");
         final int totalCards = cards.size();
         final int[] completedCards = {0};
 
@@ -1157,10 +1130,7 @@ public class SyncManager {
             if (serverCardId == null) {
                 Log.d(TAG, "Card not synced, skipping review for cardId: " + card.getId());
                 completedCards[0]++;
-                if (completedCards[0] == totalCards) {
-                    Log.d(TAG, "Completed pulling reviews for all cards");
-                    callback.onSuccess();
-                }
+                if (completedCards[0] == totalCards) callback.onSuccess();
                 continue;
             }
 
@@ -1168,76 +1138,96 @@ public class SyncManager {
             apiService.getReviewByCardId(serverCardId).enqueue(new Callback<ReviewDto>() {
                 @Override
                 public void onResponse(Call<ReviewDto> call, Response<ReviewDto> response) {
-                    if (!response.isSuccessful()) {
+                    if (!response.isSuccessful() || response.body() == null) {
                         Log.e(TAG, "Failed to pull review for serverCardId: " + serverCardId +
                                 ", code: " + response.code());
                         completedCards[0]++;
-                        if (completedCards[0] == totalCards) {
-                            Log.d(TAG, "Completed pulling reviews for all cards");
-                            callback.onSuccess();
-                        }
+                        if (completedCards[0] == totalCards) callback.onSuccess();
                         return;
                     }
 
                     ReviewDto serverReview = response.body();
-                    if (serverReview == null || serverReview.getId() == null) {
-                        Log.d(TAG, "No review found for serverCardId: " + serverCardId);
-                        // Xóa review pending_create nếu có
-                        Review existingReview = reviewRepository.getReviewByCardId(card.getId());
-                        if (existingReview != null && "pending_create".equals(existingReview.getSyncStatus())) {
-                            reviewRepository.deleteReviewConfirmed(existingReview.getId());
-                            Log.d(TAG, "Deleted unnecessary pending_create review for cardId: " + card.getId());
-                        }
-                        completedCards[0]++;
-                        if (completedCards[0] == totalCards) {
-                            Log.d(TAG, "Completed pulling reviews for all cards");
-                            callback.onSuccess();
-                        }
-                        return;
-                    }
-
                     String serverReviewId = serverReview.getId();
-                    Integer localReviewId = idMappingRepository.getLocalIdByServerId(serverReviewId, "review");
-                    Review localReview = localReviewId != null ? reviewRepository.getReviewById(localReviewId) : null;
-
-                    // Xóa review pending_create hiện có cho card này
-                    Review existingReview = reviewRepository.getReviewByCardId(card.getId());
-                    if (existingReview != null && "pending_create".equals(existingReview.getSyncStatus())) {
-                        reviewRepository.deleteReviewConfirmed(existingReview.getId());
-                        Log.d(TAG, "Deleted pending_create review for cardId: " + card.getId() +
-                                " before inserting server review");
-                    }
-
                     Log.d(TAG, "Successfully pulled review for serverCardId: " + serverCardId +
                             ", serverReviewId: " + serverReviewId +
                             ", lastReviewed: " + serverReview.getLastReviewed());
 
+                    Integer localReviewId = idMappingRepository.getLocalIdByServerId(serverReviewId, "review");
+                    Review localReview = localReviewId != null ? reviewRepository.getReviewById(localReviewId) : null;
+
                     try {
-                        String lastReviewedStr = serverReview.getLastReviewed();
-                        String nextReviewDateStr = serverReview.getNextReviewDate();
+                        Review existingReview = reviewRepository.getReviewByCardId(card.getId());
+                        if (existingReview != null && (localReview == null || existingReview.getId() != localReview.getId())) {
+                            reviewRepository.deleteReviewConfirmed(existingReview.getId());
+                            Log.d(TAG, "Deleted duplicate review for cardId: " + card.getId() +
+                                    ", reviewId: " + existingReview.getId());
+                        }
+
+                        String serverLastReviewed = serverReview.getLastReviewed();
+                        String localLastReviewed = localReview != null ? localReview.getLastReviewed() : null;
+
                         if (localReview == null) {
+                            // Create new review locally
                             Review newReview = new Review();
                             newReview.setServerId(serverReviewId);
                             newReview.setCardId(card.getId());
                             newReview.setEase(serverReview.getEase());
                             newReview.setInterval(serverReview.getInterval());
                             newReview.setRepetition(serverReview.getRepetition());
-                            newReview.setNextReviewDate(nextReviewDateStr);
-                            newReview.setLastReviewed(lastReviewedStr);
+                            newReview.setNextReviewDate(serverReview.getNextReviewDate());
+                            newReview.setLastReviewed(serverLastReviewed);
+                            newReview.setLastModified(dateFormat.format(new Date()));
                             newReview.setSyncStatus("synced");
                             long newLocalId = reviewRepository.insertReview(newReview);
                             idMappingRepository.insertIdMappingSafe(new IdMapping((int) newLocalId, serverReviewId, "review"));
-                            Log.d(TAG, "Inserted new review with localId: " + newLocalId +
-                                    ", serverId: " + serverReviewId);
+                            Log.d(TAG, "Inserted new review with serverId: " + serverReviewId);
                         } else {
+                            // Protect local pending_update
+                            if ("pending_update".equals(localReview.getSyncStatus())) {
+                                Log.d(TAG, "Skipping server update for review with pending_update: " + localReview.getId());
+                                completedCards[0]++;
+                                if (completedCards[0] == totalCards) callback.onSuccess();
+                                return;
+                            }
                             if ("pending_delete".equals(localReview.getSyncStatus())) {
                                 Log.d(TAG, "Skipping update for review marked as pending_delete: " + localReview.getId());
+                                completedCards[0]++;
+                                if (completedCards[0] == totalCards) callback.onSuccess();
+                                return;
+                            }
+
+                            // Compare lastReviewed
+                            boolean shouldUpdateLocal = false;
+                            if (serverLastReviewed == null && localLastReviewed == null) {
+                                // Both null, compare other fields if needed
+                                if (!serverReview.getNextReviewDate().equals(localReview.getNextReviewDate()) ||
+                                        serverReview.getEase() != localReview.getEase() ||
+                                        serverReview.getInterval() != localReview.getInterval() ||
+                                        serverReview.getRepetition() != localReview.getRepetition()) {
+                                    shouldUpdateLocal = true;
+                                }
+                            } else if (serverLastReviewed == null && localLastReviewed != null) {
+                                // Server is older, keep local
+                                Log.d(TAG, "Server lastReviewed is null, keeping local review: " + localReview.getId());
+                            } else if (serverLastReviewed != null && localLastReviewed == null) {
+                                // Server is newer, update local
+                                shouldUpdateLocal = true;
                             } else {
+                                // Compare dates
+                                Date serverDate = dateFormat.parse(serverLastReviewed);
+                                Date localDate = dateFormat.parse(localLastReviewed);
+                                if (serverDate.after(localDate)) {
+                                    shouldUpdateLocal = true;
+                                }
+                            }
+
+                            if (shouldUpdateLocal) {
                                 localReview.setEase(serverReview.getEase());
                                 localReview.setInterval(serverReview.getInterval());
                                 localReview.setRepetition(serverReview.getRepetition());
-                                localReview.setNextReviewDate(nextReviewDateStr);
-                                localReview.setLastReviewed(lastReviewedStr);
+                                localReview.setNextReviewDate(serverReview.getNextReviewDate());
+                                localReview.setLastReviewed(serverLastReviewed);
+                                localReview.setLastModified(dateFormat.format(new Date()));
                                 reviewRepository.updateReview(localReview, true);
                                 reviewRepository.updateSyncStatus(localReview.getId(), "synced");
                                 Log.d(TAG, "Updated review with localId: " + localReview.getId());
@@ -1248,20 +1238,14 @@ public class SyncManager {
                     }
 
                     completedCards[0]++;
-                    if (completedCards[0] == totalCards) {
-                        Log.d(TAG, "Completed pulling reviews for all cards");
-                        callback.onSuccess();
-                    }
+                    if (completedCards[0] == totalCards) callback.onSuccess();
                 }
 
                 @Override
                 public void onFailure(Call<ReviewDto> call, Throwable t) {
                     Log.e(TAG, "Network error pulling review for serverCardId: " + serverCardId + ": " + t.getMessage());
                     completedCards[0]++;
-                    if (completedCards[0] == totalCards) {
-                        Log.d(TAG, "Completed pulling reviews for all cards");
-                        callback.onSuccess();
-                    }
+                    if (completedCards[0] == totalCards) callback.onSuccess();
                 }
             });
         }
@@ -1280,14 +1264,10 @@ public class SyncManager {
             return;
         }
 
-        Log.d(TAG, "Processing " + pendingReviews.size() + " pending reviews");
         final int totalPending = pendingReviews.size();
         final int[] completedTasks = {0};
 
         for (Review review : pendingReviews) {
-            Log.d(TAG, "Pending review - ID: " + review.getId() +
-                    ", CardId: " + review.getCardId() +
-                    ", SyncStatus: " + review.getSyncStatus());
             switch (review.getSyncStatus()) {
                 case "pending_create":
                     createReviewOnServer(review, new SyncCallback() {
@@ -1351,26 +1331,17 @@ public class SyncManager {
         dto.setNextReviewDate(review.getNextReviewDate());
         dto.setLastReviewed(review.getLastReviewed());
 
-        Log.d(TAG, "Creating review with DTO: reviewId=" + review.getId() +
-                ", cardId=" + serverCardId +
-                ", ease=" + dto.getEase() +
-                ", interval=" + dto.getInterval() +
-                ", repetition=" + dto.getRepetition() +
-                ", nextReviewDate=" + dto.getNextReviewDate() +
-                ", lastReviewed=" + dto.getLastReviewed());
-
         apiService.createReview(dto).enqueue(new Callback<ReviewDto>() {
             @Override
             public void onResponse(Call<ReviewDto> call, Response<ReviewDto> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     ReviewDto serverReview = response.body();
                     review.setServerId(serverReview.getId());
+                    review.setLastModified(dateFormat.format(new Date()));
                     reviewRepository.updateReview(review, true);
                     idMappingRepository.insertIdMappingSafe(new IdMapping(review.getId(), serverReview.getId(), "review"));
                     reviewRepository.updateSyncStatus(review.getId(), "synced");
-                    Log.d(TAG, "Created review on server with localId: " + review.getId() +
-                            ", serverId: " + serverReview.getId() +
-                            ", syncStatus: synced");
+                    Log.d(TAG, "Created review on server with serverId: " + serverReview.getId());
                     callback.onSuccess();
                 } else {
                     Log.e(TAG, "Failed to create review: " + response.code());
@@ -1412,6 +1383,7 @@ public class SyncManager {
             @Override
             public void onResponse(Call<Void> call, Response<Void> response) {
                 if (response.isSuccessful()) {
+                    review.setLastModified(dateFormat.format(new Date()));
                     reviewRepository.updateReview(review, true);
                     reviewRepository.updateSyncStatus(review.getId(), "synced");
                     Log.d(TAG, "Updated review on server with serverId: " + serverId);
@@ -1462,7 +1434,365 @@ public class SyncManager {
         });
     }
 
-    // Phương thức mới để dọn dẹp Review mồ côi
+    private void cleanOrphanedReviews() {
+        Log.d(TAG, "Cleaning up orphaned reviews...");
+        List<Card> cards = cardRepository.getAllCards();
+        Set<Integer> cardIds = new HashSet<>();
+        for (Card card : cards) {
+            cardIds.add(card.getId());
+        }
+
+        List<Review> reviews = reviewRepository.getAllReviews();
+        for (Review review : reviews) {
+            if (!cardIds.contains(review.getCardId())) {
+                reviewRepository.deleteReview(review.getId());
+                Log.d(TAG, "Marked orphaned review for deletion - ID: " + review.getId());
+            }
+        }
+        Log.d(TAG, "Orphaned reviews cleanup completed");
+    }
+
+
+    // SESSION SYNC SECTION
+    // SESSION SYNC SECTION
+    public void syncSessions(final SyncCallback callback) {
+        Log.d(TAG, "Starting session sync...");
+        pullSessionsFromServer(new SyncCallback() {
+            @Override
+            public void onSuccess() {
+                pushSessionsToServer(new SyncCallback() {
+                    @Override
+                    public void onSuccess() {
+                        List<LearningSession> pendingSessions = new ArrayList<>();
+                        pendingSessions.addAll(sessionRepository.getPendingSessions("pending_create"));
+                        pendingSessions.addAll(sessionRepository.getPendingSessions("pending_update"));
+                        pendingSessions.addAll(sessionRepository.getPendingSessions("pending_delete"));
+                        if (!pendingSessions.isEmpty()) {
+                            Log.d(TAG, "Pending sessions remain: " + pendingSessions.size());
+                            for (LearningSession session : pendingSessions) {
+                                Log.d(TAG, "Pending session - ID: " + session.getId() +
+                                        ", DeskId: " + session.getDeskId() +
+                                        ", SyncStatus: " + session.getSyncStatus());
+                            }
+                            syncSessions(callback); // Retry until no pending sessions
+                        } else {
+                            Log.d(TAG, "Session sync completed successfully");
+                            callback.onSuccess();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(String error) {
+                        callback.onFailure(error);
+                    }
+                });
+            }
+
+            @Override
+            public void onFailure(String error) {
+                callback.onFailure(error);
+            }
+        });
+    }
+
+    private void pullSessionsFromServer(final SyncCallback callback) {
+        Log.d(TAG, "Pulling sessions from server...");
+        List<Desk> desks = deskRepository.getAllDesks();
+        if (desks.isEmpty()) {
+            Log.d(TAG, "No desks found, skipping session sync");
+            callback.onSuccess();
+            return;
+        }
+
+        final int totalDesks = desks.size();
+        final int[] completedDesks = {0};
+
+        for (Desk desk : desks) {
+            String serverDeskId = idMappingRepository.getServerIdByLocalId(desk.getId(), "desk");
+            if (serverDeskId == null) {
+                Log.d(TAG, "Desk not synced, skipping sessions for deskId: " + desk.getId());
+                completedDesks[0]++;
+                if (completedDesks[0] == totalDesks) callback.onSuccess();
+                continue;
+            }
+
+            apiService.getSessionsByDeskId(serverDeskId).enqueue(new Callback<List<SessionDto>>() {
+                @Override
+                public void onResponse(Call<List<SessionDto>> call, Response<List<SessionDto>> response) {
+                    if (!response.isSuccessful() || response.body() == null) {
+                        Log.e(TAG, "Failed to pull sessions for deskId: " + serverDeskId +
+                                ", code: " + response.code());
+                        completedDesks[0]++;
+                        if (completedDesks[0] == totalDesks) callback.onSuccess();
+                        return;
+                    }
+
+                    List<SessionDto> serverSessions = response.body();
+                    Log.d(TAG, "Successfully pulled " + serverSessions.size() + " sessions for deskId: " + serverDeskId);
+
+                    for (SessionDto serverSession : serverSessions) {
+                        if (serverSession.getId() == null) {
+                            Log.e(TAG, "Invalid server session data, skipping for deskId: " + serverDeskId);
+                            continue;
+                        }
+
+                        String serverSessionId = serverSession.getId();
+                        Integer localId = idMappingRepository.getLocalIdByServerId(serverSessionId, "session");
+                        LearningSession localSession = localId != null ? sessionRepository.getSessionById(localId) : null;
+
+                        if (localSession == null) {
+                            // Create new session locally
+                            LearningSession newSession = new LearningSession();
+                            newSession.setServerId(serverSessionId);
+                            newSession.setDeskId(desk.getId());
+                            newSession.setStartTime(serverSession.getStartTime());
+                            newSession.setEndTime(serverSession.getEndTime());
+                            newSession.setCardsStudied(serverSession.getCardsStudied());
+                            newSession.setPerformance(serverSession.getPerformance());
+                            newSession.setLastModified(dateFormat.format(new Date())); // For local tracking only
+                            newSession.setSyncStatus("synced");
+                            long newLocalId = sessionRepository.insertSession(newSession);
+                            idMappingRepository.insertIdMappingSafe(new IdMapping((int) newLocalId, serverSessionId, "session"));
+                            Log.d(TAG, "Inserted new session with serverId: " + serverSessionId);
+                        } else {
+                            // Compare endTime
+                            String serverEndTime = serverSession.getEndTime();
+                            String localEndTime = localSession.getEndTime();
+                            if ("pending_delete".equals(localSession.getSyncStatus())) {
+                                Log.d(TAG, "Skipping update for session marked as pending_delete: " + localSession.getId());
+                                continue;
+                            }
+                            if (!nullSafeEquals(serverEndTime, localEndTime)) {
+                                // Update local session if endTime differs
+                                localSession.setStartTime(serverSession.getStartTime());
+                                localSession.setEndTime(serverEndTime);
+                                localSession.setCardsStudied(serverSession.getCardsStudied());
+                                localSession.setPerformance(serverSession.getPerformance());
+                                localSession.setLastModified(dateFormat.format(new Date())); // For local tracking
+                                sessionRepository.updateSession(localSession, true);
+                                sessionRepository.updateSyncStatus(localSession.getId(), "synced");
+                                Log.d(TAG, "Updated session with localId: " + localSession.getId() + " due to endTime mismatch");
+                            }
+                        }
+                    }
+
+                    completedDesks[0]++;
+                    if (completedDesks[0] == totalDesks) callback.onSuccess();
+                }
+
+                @Override
+                public void onFailure(Call<List<SessionDto>> call, Throwable t) {
+                    Log.e(TAG, "Network error pulling sessions for deskId: " + serverDeskId + ": " + t.getMessage());
+                    completedDesks[0]++;
+                    if (completedDesks[0] == totalDesks) callback.onSuccess();
+                }
+            });
+        }
+    }
+
+    private void pushSessionsToServer(final SyncCallback callback) {
+        Log.d(TAG, "Pushing sessions to server...");
+        List<LearningSession> pendingSessions = new ArrayList<>();
+        pendingSessions.addAll(sessionRepository.getPendingSessions("pending_create"));
+        pendingSessions.addAll(sessionRepository.getPendingSessions("pending_update"));
+        pendingSessions.addAll(sessionRepository.getPendingSessions("pending_delete"));
+
+        if (pendingSessions.isEmpty()) {
+            Log.d(TAG, "No pending sessions to sync");
+            callback.onSuccess();
+            return;
+        }
+
+        final int totalPending = pendingSessions.size();
+        final int[] completedTasks = {0};
+
+        for (LearningSession session : pendingSessions) {
+            switch (session.getSyncStatus()) {
+                case "pending_create":
+                    createSessionOnServer(session, new SyncCallback() {
+                        @Override
+                        public void onSuccess() {
+                            completedTasks[0]++;
+                            if (completedTasks[0] == totalPending) callback.onSuccess();
+                        }
+
+                        @Override
+                        public void onFailure(String error) {
+                            callback.onFailure(error);
+                        }
+                    });
+                    break;
+                case "pending_update":
+                    updateSessionOnServer(session, new SyncCallback() {
+                        @Override
+                        public void onSuccess() {
+                            completedTasks[0]++;
+                            if (completedTasks[0] == totalPending) callback.onSuccess();
+                        }
+
+                        @Override
+                        public void onFailure(String error) {
+                            callback.onFailure(error);
+                        }
+                    });
+                    break;
+                case "pending_delete":
+                    deleteSessionOnServer(session, pendingSessions, new SyncCallback() {
+                        @Override
+                        public void onSuccess() {
+                            completedTasks[0]++;
+                            if (completedTasks[0] == totalPending) callback.onSuccess();
+                        }
+
+                        @Override
+                        public void onFailure(String error) {
+                            callback.onFailure(error);
+                        }
+                    });
+                    break;
+            }
+        }
+    }
+
+    private void createSessionOnServer(final LearningSession session, final SyncCallback callback) {
+        String serverDeskId = idMappingRepository.getServerIdByLocalId(session.getDeskId(), "desk");
+        if (serverDeskId == null) {
+            Log.d(TAG, "Desk not synced for sessionId: " + session.getId() + ", delaying sync");
+            callback.onSuccess(); // Delay until desk is synced
+            return;
+        }
+
+        SessionDto dto = new SessionDto();
+        dto.setDeskId(serverDeskId);
+        dto.setStartTime(session.getStartTime());
+        dto.setEndTime(session.getEndTime());
+        dto.setCardsStudied(session.getCardsStudied());
+        dto.setPerformance(session.getPerformance());
+
+        apiService.createSession(dto).enqueue(new Callback<SessionDto>() {
+            @Override
+            public void onResponse(Call<SessionDto> call, Response<SessionDto> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    SessionDto serverSession = response.body();
+                    session.setServerId(serverSession.getId());
+                    session.setLastModified(dateFormat.format(new Date())); // For local tracking
+                    sessionRepository.updateSession(session, true);
+                    idMappingRepository.insertIdMappingSafe(new IdMapping(session.getId(), serverSession.getId(), "session"));
+                    sessionRepository.updateSyncStatus(session.getId(), "synced");
+                    Log.d(TAG, "Created session on server with serverId: " + serverSession.getId());
+                    callback.onSuccess();
+                } else {
+                    Log.e(TAG, "Failed to create session: " + response.code());
+                    callback.onFailure("Failed to create session: " + response.message());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<SessionDto> call, Throwable t) {
+                Log.e(TAG, "Network error creating session: " + t.getMessage());
+                callback.onFailure("Network error: " + t.getMessage());
+            }
+        });
+    }
+
+    private void updateSessionOnServer(final LearningSession session, final SyncCallback callback) {
+        String serverId = idMappingRepository.getServerIdByLocalId(session.getId(), "session");
+        if (serverId == null) {
+            createSessionOnServer(session, callback); // Treat as create if no serverId
+            return;
+        }
+
+        String serverDeskId = idMappingRepository.getServerIdByLocalId(session.getDeskId(), "desk");
+        if (serverDeskId == null) {
+            Log.d(TAG, "Desk not synced for sessionId: " + session.getId() + ", delaying sync");
+            callback.onSuccess(); // Delay until desk is synced
+            return;
+        }
+
+        SessionDto dto = new SessionDto();
+        dto.setDeskId(serverDeskId);
+        dto.setStartTime(session.getStartTime());
+        dto.setEndTime(session.getEndTime());
+        dto.setCardsStudied(session.getCardsStudied());
+        dto.setPerformance(session.getPerformance());
+
+        apiService.updateSession(serverId, dto).enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    session.setLastModified(dateFormat.format(new Date())); // For local tracking
+                    sessionRepository.updateSession(session, true);
+                    sessionRepository.updateSyncStatus(session.getId(), "synced");
+                    Log.d(TAG, "Updated session on server with serverId: " + serverId);
+                    callback.onSuccess();
+                } else {
+                    Log.e(TAG, "Failed to update session: " + response.code());
+                    callback.onFailure("Failed to update session: " + response.message());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Log.e(TAG, "Network error updating session: " + t.getMessage());
+                callback.onFailure("Network error: " + t.getMessage());
+            }
+        });
+    }
+
+    private void deleteSessionOnServer(final LearningSession session, final List<LearningSession> pendingSessions, final SyncCallback callback) {
+        String serverId = idMappingRepository.getServerIdByLocalId(session.getId(), "session");
+        if (serverId == null) {
+            sessionRepository.deleteSessionConfirmed(session.getId());
+            pendingSessions.remove(session);
+            Log.d(TAG, "No serverId found, deleted session locally: " + session.getId());
+            callback.onSuccess();
+            return;
+        }
+
+        apiService.deleteSession(serverId).enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    sessionRepository.deleteSessionConfirmed(session.getId());
+                    pendingSessions.remove(session);
+                    Log.d(TAG, "Deleted session on server with serverId: " + serverId);
+                    callback.onSuccess();
+                } else {
+                    Log.e(TAG, "Failed to delete session: " + response.code());
+                    callback.onFailure("Failed to delete session: " + response.message());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Log.e(TAG, "Network error deleting session: " + t.getMessage());
+                callback.onFailure("Network error: " + t.getMessage());
+            }
+        });
+    }
+
+    private boolean nullSafeEquals(String a, String b) {
+        if (a == null && b == null) return true;
+        if (a == null || b == null) return false;
+        return a.equals(b);
+    }
+
+    private Date parseFlexibleDate(String dateStr) throws ParseException {
+        if (dateStr == null) {
+            return new Date();
+        }
+        try {
+            return dateFormat.parse(dateStr);
+        } catch (ParseException e) {
+            SimpleDateFormat altFormat = new SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.US);
+            try {
+                return altFormat.parse(dateStr);
+            } catch (ParseException e2) {
+                Log.e(TAG, "Unparseable date: " + dateStr);
+                throw e2;
+            }
+        }
+    }
 
     public interface SyncCallback {
         void onSuccess();

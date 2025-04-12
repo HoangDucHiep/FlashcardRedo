@@ -34,9 +34,11 @@ public class CardRepository {
         dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
     }
 
-
-
     public long insertCard(Card card) {
+        return insertCard(card, false); // Gọi từ UI, không phải đồng bộ
+    }
+
+    public long insertCard(Card card, boolean fromSync) {
         String currentTime = dateFormat.format(new Date());
         card.setLastModified(currentTime);
         if (card.getCreatedAt() == null) {
@@ -54,25 +56,29 @@ public class CardRepository {
             if (card.getServerId() != null) {
                 idMappingRepository.insertIdMapping(new IdMapping((int) cardId, card.getServerId(), "card"));
             }
-            Review review = new Review();
-            review.setCardId((int) cardId);
-            review.setEase(2.5);
-            review.setInterval(0);
-            review.setRepetition(0);
-            review.setNextReviewDate(currentTime);
-            review.setLastReviewed(null);
-            review.setSyncStatus("pending_create");
-            long reviewId = reviewRepository.insertReview(review);
-            if (reviewId == -1) {
-                Log.e(TAG, "Failed to insert review for cardId: " + cardId);
-                cardDao.deleteCard((int) cardId);
-                return -1;
+            // Chỉ tạo Review mặc định nếu không phải từ đồng bộ
+            if (!fromSync) {
+                Review review = new Review();
+                review.setCardId((int) cardId);
+                review.setEase(2.5);
+                review.setInterval(0);
+                review.setRepetition(0);
+                review.setNextReviewDate(currentTime);
+                review.setLastReviewed(null);
+                review.setSyncStatus("pending_create");
+                long reviewId = reviewRepository.insertReview(review);
+                if (reviewId == -1) {
+                    Log.e(TAG, "Failed to insert review for cardId: " + cardId);
+                    cardDao.deleteCard((int) cardId);
+                    return -1;
+                }
             }
         } else {
             Log.e(TAG, "Failed to insert card");
         }
         return cardId;
     }
+
 
     public void updateCard(Card card, boolean fromSync) {
         Card existingCard = cardDao.getCardById(card.getId());

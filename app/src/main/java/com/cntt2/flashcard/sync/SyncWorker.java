@@ -26,26 +26,37 @@ public class SyncWorker extends Worker {
                     @Override
                     public void onSuccess() {
                         Log.d(TAG, "Desk sync completed successfully");
-                        syncManager.syncCards(new SyncManager.SyncCallback() {
+                        syncManager.syncSessions(new SyncManager.SyncCallback() {
                             @Override
                             public void onSuccess() {
-                                Log.d(TAG, "Card sync completed successfully");
-                                syncManager.syncReviews(new SyncManager.SyncCallback() {
+                                Log.d(TAG, "Session sync completed successfully");
+                                syncManager.syncCards(new SyncManager.SyncCallback() {
                                     @Override
                                     public void onSuccess() {
-                                        Log.d(TAG, "Review sync completed successfully");
+                                        Log.d(TAG, "Card sync completed successfully");
+                                        syncManager.syncReviews(new SyncManager.SyncCallback() {
+                                            @Override
+                                            public void onSuccess() {
+                                                Log.d(TAG, "Review sync completed successfully");
+                                            }
+
+                                            @Override
+                                            public void onFailure(String error) {
+                                                Log.e(TAG, "Review sync failed: " + error);
+                                            }
+                                        });
                                     }
 
                                     @Override
                                     public void onFailure(String error) {
-                                        Log.e(TAG, "Review sync failed: " + error);
+                                        Log.e(TAG, "Card sync failed: " + error);
                                     }
                                 });
                             }
 
                             @Override
                             public void onFailure(String error) {
-                                Log.e(TAG, "Card sync failed: " + error);
+                                Log.e(TAG, "Session sync failed: " + error);
                             }
                         });
                     }
