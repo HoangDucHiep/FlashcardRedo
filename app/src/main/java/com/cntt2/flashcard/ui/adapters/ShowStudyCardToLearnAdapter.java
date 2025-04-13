@@ -50,10 +50,14 @@ public class ShowStudyCardToLearnAdapter extends RecyclerView.Adapter<ShowStudyC
 
     // Hàm gói nội dung HTML
     private String wrapHtml(String content) {
+        if (content == null) {
+            content = "";
+        }
         return "<html><head><meta name='viewport' content='width=device-width, initial-scale=1.0' />"
-                + "<style>body{font-size:16px;text-align:center;word-wrap:break-word;max-width:100%; margin: 0 auto; max-height: 2000px; overflow-y: scroll;} img{max-width:100%; height:auto;}</style></head><body>"
+                + "<style>body{ background-color: rgb(67, 78, 170); color:white;font-size:16px;text-align:center;word-wrap:break-word;max-width:100%; margin: 0 auto; max-height: 2000px; overflow-y: scroll;} img{max-width:100%; height:auto;}</style></head><body>"
                 + content + "</body></html>";
     }
+
 
     public static class CardViewHolder extends RecyclerView.ViewHolder {
         public WebView webFront, webBack;

@@ -16,55 +16,83 @@ import com.cntt2.flashcard.data.remote.ApiService;
 import com.cntt2.flashcard.data.remote.UserInfo;
 import com.cntt2.flashcard.data.remote.dto.LoginRequest;
 import com.cntt2.flashcard.data.remote.dto.LoginResponse;
+import com.cntt2.flashcard.data.remote.dto.RegisterRequest;
 
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-public class LoginActivity extends AppCompatActivity {
+public class RegisterActivity extends AppCompatActivity {
     private EditText usernameEditText;
     private EditText passwordEditText;
-    private Button loginButton;
-    private TextView registerText;
+    private EditText confirmPasswordEditText;
+    private Button registerButton;
+    private TextView loginText;
     private ApiService apiService;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_login);
-
-        // Kiểm tra nếu đã đăng nhập, chuyển sang SplashActivity để đồng bộ
-        if (ApiClient.isLoggedIn()) {
-            startActivity(new Intent(this, SplashActivity.class));
-            finish();
-            return;
-        }
+        setContentView(R.layout.activity_register);
 
         // Khởi tạo UI
         usernameEditText = findViewById(R.id.username_edit_text);
         passwordEditText = findViewById(R.id.password_edit_text);
-        loginButton = findViewById(R.id.login_button);
-        registerText = findViewById(R.id.register_text);
+        confirmPasswordEditText = findViewById(R.id.confirm_password_edit_text);
+        registerButton = findViewById(R.id.register_button);
+        loginText = findViewById(R.id.login_text);
         apiService = App.getInstance().getApiService();
 
-        // Xử lý sự kiện nhấn nút Login
-        loginButton.setOnClickListener(v -> {
+        // Xử lý sự kiện nhấn nút Register
+        registerButton.setOnClickListener(v -> {
             String username = usernameEditText.getText().toString().trim();
             String password = passwordEditText.getText().toString().trim();
-            if (!username.isEmpty() && !password.isEmpty()) {
-                login(username, password);
-            } else {
-                Toast.makeText(this, "Vui lòng nhập username và password", Toast.LENGTH_SHORT).show();
+            String confirmPassword = confirmPasswordEditText.getText().toString().trim();
+
+            if (username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
+                Toast.makeText(this, "Vui lòng điền đầy đủ thông tin", Toast.LENGTH_SHORT).show();
+                return;
             }
+
+            if (!password.equals(confirmPassword)) {
+                Toast.makeText(this, "Mật khẩu không khớp", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            register(username, password);
         });
 
-        // Chuyển sang màn hình Đăng ký
-        registerText.setOnClickListener(v -> {
-            startActivity(new Intent(this, RegisterActivity.class));
+        // Chuyển sang màn hình Đăng nhập
+        loginText.setOnClickListener(v -> {
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
         });
     }
 
-    private void login(String username, String password) {
+    private void register(String username, String password) {
+        RegisterRequest registerRequest = new RegisterRequest(username, password);
+        Call<Void> call = apiService.register(registerRequest);
+
+        call.enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    Toast.makeText(RegisterActivity.this, "Đăng ký thành công! Đang đăng nhập...", Toast.LENGTH_SHORT).show();
+                    // Sau khi đăng ký thành công, tự động đăng nhập
+                    loginAfterRegister(username, password);
+                } else {
+                    Toast.makeText(RegisterActivity.this, "Đăng ký thất bại: " + response.message(), Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Toast.makeText(RegisterActivity.this, "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void loginAfterRegister(String username, String password) {
         LoginRequest loginRequest = new LoginRequest(username, password);
         Call<LoginResponse> call = apiService.login(loginRequest);
 
@@ -81,13 +109,13 @@ public class LoginActivity extends AppCompatActivity {
                     // Gọi API để lấy thông tin user (userId)
                     fetchUserInfo(token, username);
                 } else {
-                    Toast.makeText(LoginActivity.this, "Đăng nhập thất bại: " + response.message(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(RegisterActivity.this, "Đăng nhập sau khi đăng ký thất bại: " + response.message(), Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onFailure(Call<LoginResponse> call, Throwable t) {
-                Toast.makeText(LoginActivity.this, "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(RegisterActivity.this, "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_LONG).show();
             }
         });
     }
@@ -105,16 +133,16 @@ public class LoginActivity extends AppCompatActivity {
                     ApiClient.saveAuthData(token, username, userId);
 
                     // Chuyển đến SplashActivity để đồng bộ
-                    startActivity(new Intent(LoginActivity.this, SplashActivity.class));
+                    startActivity(new Intent(RegisterActivity.this, SplashActivity.class));
                     finish();
                 } else {
-                    Toast.makeText(LoginActivity.this, "Không thể lấy thông tin user: " + response.code() + " - " + response.message(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(RegisterActivity.this, "Không thể lấy thông tin user: " + response.code() + " - " + response.message(), Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onFailure(Call<UserInfo> call, Throwable t) {
-                Toast.makeText(LoginActivity.this, "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(RegisterActivity.this, "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_LONG).show();
             }
         });
     }

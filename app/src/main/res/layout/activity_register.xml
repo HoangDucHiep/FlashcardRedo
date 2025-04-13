@@ -7,11 +7,11 @@
     android:padding="24dp"
     android:gravity="center">
 
-    <!-- Logo hoặc tiêu đề ứng dụng -->
+    <!-- Tiêu đề -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Flashcard App"
+        android:text="Register"
         android:textSize="32sp"
         android:textColor="#FFFFFF"
         android:fontFamily="sans-serif-medium"
@@ -43,25 +43,39 @@
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
         android:inputType="textPassword"
-        android:layout_marginBottom="24dp"/>
+        android:layout_marginBottom="16dp"/>
 
-    <!-- Nút Đăng nhập -->
-    <Button
-        android:id="@+id/login_button"
+    <!-- Trường nhập Confirm Password -->
+    <EditText
+        android:id="@+id/confirm_password_edit_text"
         android:layout_width="match_parent"
         android:layout_height="56dp"
-        android:text="Login"
+        android:hint="Confirm Password"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#D1D5DB"
+        android:background="@drawable/edit_text_background"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:inputType="textPassword"
+        android:layout_marginBottom="24dp"/>
+
+    <!-- Nút Đăng ký -->
+    <Button
+        android:id="@+id/register_button"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="Register"
         android:textSize="16sp"
         android:textColor="#FFFFFF"
         android:background="@drawable/button_background"
         android:layout_marginBottom="16dp"/>
 
-    <!-- Text để chuyển sang Đăng ký -->
+    <!-- Text để chuyển sang Đăng nhập -->
     <TextView
-        android:id="@+id/register_text"
+        android:id="@+id/login_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Don't have an account? Register"
+        android:text="Already have an account? Login"
         android:textColor="#3B82F6"
         android:textSize="14sp"
         android:layout_gravity="center"

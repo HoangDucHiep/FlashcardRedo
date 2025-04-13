@@ -132,4 +132,31 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             db.execSQL("ALTER TABLE desks_temp RENAME TO desks");
         }
     }
+
+    public void clearAllData() {
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        try {
+            // Delete all records from all tables
+            db.execSQL("DELETE FROM folders");
+            db.execSQL("DELETE FROM desks");
+            db.execSQL("DELETE FROM cards");
+            db.execSQL("DELETE FROM reviews");
+            db.execSQL("DELETE FROM learning_sessions");
+            db.execSQL("DELETE FROM id_mapping");
+
+            // Reset the AUTOINCREMENT counters for all tables
+            db.execSQL("DELETE FROM sqlite_sequence WHERE name='folders'");
+            db.execSQL("DELETE FROM sqlite_sequence WHERE name='desks'");
+            db.execSQL("DELETE FROM sqlite_sequence WHERE name='cards'");
+            db.execSQL("DELETE FROM sqlite_sequence WHERE name='reviews'");
+            db.execSQL("DELETE FROM sqlite_sequence WHERE name='learning_sessions'");
+            db.execSQL("DELETE FROM sqlite_sequence WHERE name='id_mapping'");
+
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+            db.close();
+        }
+    }
 }

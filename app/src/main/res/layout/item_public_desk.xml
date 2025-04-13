@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="12dp"
+    android:background="#1B2433"
+    android:layout_marginBottom="8dp">
+
+    <!-- Icon -->
+    <ImageView
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@drawable/ic_deck_icon"
+        android:layout_gravity="center_vertical"
+        android:layout_marginEnd="12dp" />
+
+    <!-- Desk Info -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvDeskName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Desk Name"
+            android:textColor="#FFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvCardCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0 Cards"
+            android:textColor="#AAA"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/tvLearners"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0 Learners"
+            android:textColor="#AAA"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/tvCreator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="by: Unknown"
+            android:textColor="#AAA"
+            android:textSize="14sp" />
+
+    </LinearLayout>
+
+    <!-- Arrow -->
+    <ImageView
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@android:drawable/ic_media_next"
+        android:layout_gravity="center_vertical"
+        android:tint="#AAA" />
+
+</LinearLayout>

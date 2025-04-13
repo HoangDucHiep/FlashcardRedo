@@ -12,7 +12,8 @@ import androidx.fragment.app.Fragment;
 import com.cntt2.flashcard.R;
 import com.cntt2.flashcard.ui.fragments.HomeFragment;
 import com.cntt2.flashcard.ui.fragments.LibraryFragment;
-import com.cntt2.flashcard.ui.fragments.SettingFragment;
+import com.cntt2.flashcard.ui.fragments.SettingsFragment;
+import com.cntt2.flashcard.ui.fragments.SettingsFragment;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class MainActivity extends AppCompatActivity {
@@ -32,7 +33,7 @@ public class MainActivity extends AppCompatActivity {
             } else if (item.getItemId() == R.id.library) {
                 selectedFragment = new LibraryFragment();
             } else if (item.getItemId() == R.id.setting) {
-                selectedFragment = new SettingFragment();
+                selectedFragment = new SettingsFragment();
             }
 
             if (selectedFragment != null) {

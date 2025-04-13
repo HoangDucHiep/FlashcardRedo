@@ -8,6 +8,7 @@ import com.cntt2.flashcard.data.remote.dto.LoginRequest;
 import com.cntt2.flashcard.data.remote.dto.LoginResponse;
 import com.cntt2.flashcard.data.remote.dto.LogoutResponse;
 import com.cntt2.flashcard.data.remote.dto.PostFolderDto;
+import com.cntt2.flashcard.data.remote.dto.RegisterRequest;
 import com.cntt2.flashcard.data.remote.dto.ReviewDto;
 import com.cntt2.flashcard.data.remote.dto.SessionDto;
 
@@ -28,7 +29,7 @@ import retrofit2.http.Query;
 public interface ApiService {
     // Auth endpoints
     @POST("api/auth/register")
-    Call<Void> register(@Body LoginRequest request);
+    Call<Void> register(@Body RegisterRequest request);
 
     @POST("api/auth/login")
     Call<LoginResponse> login(@Body LoginRequest request);
