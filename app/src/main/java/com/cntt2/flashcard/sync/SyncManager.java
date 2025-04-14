@@ -201,7 +201,7 @@ public class SyncManager {
         final int totalPending = pendingFolders.size();
         final int[] completedTasks = {0};
 
-        for (Folder folder : pendingFolders) {
+        for (Folder folder : new ArrayList<>(pendingFolders)) {
             switch (folder.getSyncStatus()) {
                 case "pending_create":
                     createFolderOnServer(folder, new SyncCallback() {
@@ -523,7 +523,7 @@ public class SyncManager {
         final int totalPending = pendingDesks.size();
         final int[] completedTasks = {0};
 
-        for (Desk desk : pendingDesks) {
+        for (Desk desk : new ArrayList<>(pendingDesks)) {
             switch (desk.getSyncStatus()) {
                 case "pending_create":
                     createDeskOnServer(desk, new SyncCallback() {
@@ -880,7 +880,7 @@ public class SyncManager {
         final int totalPending = pendingCards.size();
         final int[] completedTasks = {0};
 
-        for (Card card : pendingCards) {
+        for (Card card : new ArrayList<>(pendingCards)) {
             switch (card.getSyncStatus()) {
                 case "pending_create":
                     createCardOnServer(card, new SyncCallback() {
@@ -1072,42 +1072,57 @@ public class SyncManager {
     // REVIEW SYNC SECTION
     public void syncReviews(final SyncCallback callback) {
         Log.d(TAG, "Starting review sync...");
-        pushReviewsToServer(new SyncCallback() {
-            @Override
-            public void onSuccess() {
-                pullReviewsFromServer(new SyncCallback() {
-                    @Override
-                    public void onSuccess() {
-                        List<Review> pendingReviews = new ArrayList<>();
-                        pendingReviews.addAll(reviewRepository.getPendingReviews("pending_create"));
-                        pendingReviews.addAll(reviewRepository.getPendingReviews("pending_update"));
-                        pendingReviews.addAll(reviewRepository.getPendingReviews("pending_delete"));
-                        if (!pendingReviews.isEmpty()) {
-                            Log.d(TAG, "Pending reviews remain: " + pendingReviews.size());
-                            for (Review review : pendingReviews) {
-                                Log.d(TAG, "Pending review - ID: " + review.getId() +
-                                        ", CardId: " + review.getCardId() +
-                                        ", SyncStatus: " + review.getSyncStatus());
-                            }
-                            syncReviews(callback); // Retry until no pending reviews
-                        } else {
-                            Log.d(TAG, "Review sync completed successfully");
-                            callback.onSuccess();
+        int previousPendingCount = -1;
+        while (true) {
+            List<Review> pendingReviews = new ArrayList<>();
+            pendingReviews.addAll(reviewRepository.getPendingReviews("pending_create"));
+            pendingReviews.addAll(reviewRepository.getPendingReviews("pending_update"));
+            pendingReviews.addAll(reviewRepository.getPendingReviews("pending_delete"));
+
+            if (pendingReviews.isEmpty()) {
+                Log.d(TAG, "No pending reviews, sync completed");
+                callback.onSuccess();
+                return;
+            }
+
+            // Kiểm tra xem có tiến triển không
+            if (previousPendingCount == pendingReviews.size()) {
+                Log.w(TAG, "No progress in review sync, stopping to prevent infinite loop");
+                // Xóa các review không thể sync do card đã bị xóa
+                for (Review review : pendingReviews) {
+                    String serverCardId = idMappingRepository.getServerIdByLocalId(review.getCardId(), "card");
+                    if (serverCardId == null && cardRepository.getCardById(review.getCardId()) == null) {
+                        reviewRepository.deleteReviewConfirmed(review.getId());
+                        Log.d(TAG, "Deleted unresolvable review - ID: " + review.getId());
+                    }
+                }
+                callback.onSuccess(); // Thoát với trạng thái thành công sau khi dọn dẹp
+                return;
+            }
+            previousPendingCount = pendingReviews.size();
+
+            pushReviewsToServer(new SyncCallback() {
+                @Override
+                public void onSuccess() {
+                    pullReviewsFromServer(new SyncCallback() {
+                        @Override
+                        public void onSuccess() {
+                            // Tiếp tục vòng lặp
                         }
-                    }
 
-                    @Override
-                    public void onFailure(String error) {
-                        callback.onFailure(error);
-                    }
-                });
-            }
+                        @Override
+                        public void onFailure(String error) {
+                            callback.onFailure(error);
+                        }
+                    });
+                }
 
-            @Override
-            public void onFailure(String error) {
-                callback.onFailure(error);
-            }
-        });
+                @Override
+                public void onFailure(String error) {
+                    callback.onFailure(error);
+                }
+            });
+        }
     }
 
     private void pullReviewsFromServer(final SyncCallback callback) {
@@ -1267,7 +1282,7 @@ public class SyncManager {
         final int totalPending = pendingReviews.size();
         final int[] completedTasks = {0};
 
-        for (Review review : pendingReviews) {
+        for (Review review : new ArrayList<>(pendingReviews)) { // Sao chép danh sách để tránh ConcurrentModificationException
             switch (review.getSyncStatus()) {
                 case "pending_create":
                     createReviewOnServer(review, new SyncCallback() {
@@ -1298,18 +1313,28 @@ public class SyncManager {
                     });
                     break;
                 case "pending_delete":
-                    deleteReviewOnServer(review, pendingReviews, new SyncCallback() {
-                        @Override
-                        public void onSuccess() {
-                            completedTasks[0]++;
-                            if (completedTasks[0] == totalPending) callback.onSuccess();
-                        }
+                    String serverCardId = idMappingRepository.getServerIdByLocalId(review.getCardId(), "card");
+                    if (serverCardId == null) {
+                        // Nếu card chưa sync, xóa review ngay lập tức
+                        reviewRepository.deleteReviewConfirmed(review.getId());
+                        pendingReviews.remove(review);
+                        Log.d(TAG, "Card not synced, deleted review locally - ID: " + review.getId());
+                        completedTasks[0]++;
+                        if (completedTasks[0] == totalPending) callback.onSuccess();
+                    } else {
+                        deleteReviewOnServer(review, pendingReviews, new SyncCallback() {
+                            @Override
+                            public void onSuccess() {
+                                completedTasks[0]++;
+                                if (completedTasks[0] == totalPending) callback.onSuccess();
+                            }
 
-                        @Override
-                        public void onFailure(String error) {
-                            callback.onFailure(error);
-                        }
-                    });
+                            @Override
+                            public void onFailure(String error) {
+                                callback.onFailure(error);
+                            }
+                        });
+                    }
                     break;
             }
         }
@@ -1606,7 +1631,7 @@ public class SyncManager {
         final int totalPending = pendingSessions.size();
         final int[] completedTasks = {0};
 
-        for (LearningSession session : pendingSessions) {
+        for (LearningSession session : new ArrayList<>(pendingSessions)) {
             switch (session.getSyncStatus()) {
                 case "pending_create":
                     createSessionOnServer(session, new SyncCallback() {

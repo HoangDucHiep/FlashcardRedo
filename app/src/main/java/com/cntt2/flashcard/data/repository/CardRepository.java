@@ -105,11 +105,19 @@ public class CardRepository {
         updateCard(card, false);
         Log.d(TAG, "Marked card for deletion - ID: " + card.getId());
 
-        // Xóa tất cả Review liên quan
+        // Xử lý review liên quan
         Review review = reviewRepository.getReviewByCardId(card.getId());
         if (review != null) {
-            reviewRepository.deleteReview(review.getId());
-            Log.d(TAG, "Marked review for deletion - Review ID: " + review.getId() + " for Card ID: " + card.getId());
+            String serverId = idMappingRepository.getServerIdByLocalId(card.getId(), "card");
+            if (serverId == null) {
+                // Nếu card chưa sync, xóa review ngay lập tức
+                reviewRepository.deleteReviewConfirmed(review.getId());
+                Log.d(TAG, "Card not synced, deleted review locally - Review ID: " + review.getId() + " for Card ID: " + card.getId());
+            } else {
+                // Nếu card đã sync, đánh dấu review để xóa trong quá trình sync
+                reviewRepository.deleteReview(review.getId());
+                Log.d(TAG, "Marked review for deletion - Review ID: " + review.getId() + " for Card ID: " + card.getId());
+            }
         } else {
             Log.w(TAG, "No review found for card - ID: " + card.getId());
         }
@@ -117,16 +125,12 @@ public class CardRepository {
 
     public void deleteCardConfirmed(int cardId) {
         try {
-            // Lấy Card trước khi xóa
             Card card = cardDao.getCardById(cardId);
 
-            // Xóa Card khỏi cơ sở dữ liệu
             int rowsAffected = cardDao.deleteCard(cardId);
             if (rowsAffected > 0) {
-                // Xóa IdMapping
                 idMappingRepository.deleteIdMapping(cardId, "card");
 
-                // Xử lý xóa ảnh nếu Card tồn tại
                 if (card != null) {
                     String frontAndBackHtml = card.getFront() + card.getBack();
                     Set<String> images = ImageManager.extractImagePathsFromHtml(frontAndBackHtml, context);
@@ -136,7 +140,6 @@ public class CardRepository {
                     Log.w(TAG, "Card was deleted but not found in query before deletion - ID: " + cardId);
                 }
             } else {
-                // Không tìm thấy Card, vẫn thử xóa IdMapping để đảm bảo sạch dữ liệu
                 idMappingRepository.deleteIdMapping(cardId, "card");
                 Log.w(TAG, "No card found to delete - ID: " + cardId);
             }

@@ -44,7 +44,7 @@ public class ApiClient {
             OkHttpClient client = getUnsafeOkHttpClient();
 
             Gson gson = new GsonBuilder()
-                    .setDateFormat("yyyy-MM-dd'T'HH:mm:ss") // Định dạng Date thành yyyy-MM-dd'T'HH:mm:ss
+                    .setDateFormat("yyyy-MM-dd'T'HH:mm:ss")
                     .create();
 
             retrofit = new Retrofit.Builder()
