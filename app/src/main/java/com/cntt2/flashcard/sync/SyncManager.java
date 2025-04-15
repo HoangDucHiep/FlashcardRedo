@@ -30,6 +30,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -869,6 +870,18 @@ public class SyncManager {
         pendingCards.addAll(cardRepository.getPendingCards("pending_update"));
         pendingCards.addAll(cardRepository.getPendingCards("pending_delete"));
 
+        // Xử lý các card pending_delete không có serverId trước
+        Iterator<Card> iterator = pendingCards.iterator();
+        while (iterator.hasNext()) {
+            Card card = iterator.next();
+            if ("pending_delete".equals(card.getSyncStatus()) &&
+                    idMappingRepository.getServerIdByLocalId(card.getId(), "card") == null) {
+                cardRepository.deleteCardConfirmed(card.getId());
+                iterator.remove();
+                Log.d(TAG, "Deleted card locally without serverId: " + card.getId());
+            }
+        }
+
         if (pendingCards.isEmpty()) {
             Log.d(TAG, "No pending cards to sync");
             callback.onSuccess();
@@ -887,7 +900,6 @@ public class SyncManager {
                             completedTasks[0]++;
                             if (completedTasks[0] == totalPending) callback.onSuccess();
                         }
-
                         @Override
                         public void onFailure(String error) {
                             callback.onFailure(error);
@@ -901,7 +913,6 @@ public class SyncManager {
                             completedTasks[0]++;
                             if (completedTasks[0] == totalPending) callback.onSuccess();
                         }
-
                         @Override
                         public void onFailure(String error) {
                             callback.onFailure(error);
@@ -915,7 +926,6 @@ public class SyncManager {
                             completedTasks[0]++;
                             if (completedTasks[0] == totalPending) callback.onSuccess();
                         }
-
                         @Override
                         public void onFailure(String error) {
                             callback.onFailure(error);
@@ -1039,9 +1049,9 @@ public class SyncManager {
         String serverId = idMappingRepository.getServerIdByLocalId(card.getId(), "card");
         if (serverId == null) {
             cardRepository.deleteCardConfirmed(card.getId());
-            Log.d(TAG, "No serverId found, deleted card locally: " + card.getId());
             pendingCards.remove(card);
-            callback.onSuccess();
+            Log.d(TAG, "No serverId found, deleted card locally: " + card.getId());
+            callback.onSuccess(); // Chỉ gọi onSuccess, không để lỗi xảy ra
             return;
         }
 
