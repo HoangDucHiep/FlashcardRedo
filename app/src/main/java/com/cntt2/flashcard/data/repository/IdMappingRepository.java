@@ -15,10 +15,25 @@ public class IdMappingRepository {
     }
 
     public void insertIdMapping(IdMapping idMapping) {
-        idMappingDao.insertIdMapping(idMapping);
-        Log.d(TAG, "Inserted id_mapping - localId: " + idMapping.getLocalId() +
-                ", serverId: " + idMapping.getServerId() +
-                ", entityType: " + idMapping.getEntityType());
+        String existingServerId = idMappingDao.getServerIdByLocalId(idMapping.getLocalId(), idMapping.getEntityType());
+        if (existingServerId != null) {
+            if (!existingServerId.equals(idMapping.getServerId())) {
+                // Cập nhật server_id nếu khác
+                idMappingDao.updateIdMapping(idMapping);
+                Log.d(TAG, "Updated id_mapping - localId: " + idMapping.getLocalId() +
+                        ", serverId: " + idMapping.getServerId() +
+                        ", entityType: " + idMapping.getEntityType());
+            } else {
+                Log.d(TAG, "Id mapping already exists and is up-to-date - localId: " + idMapping.getLocalId() +
+                        ", serverId: " + idMapping.getServerId() +
+                        ", entityType: " + idMapping.getEntityType());
+            }
+        } else {
+            idMappingDao.insertIdMapping(idMapping);
+            Log.d(TAG, "Inserted id_mapping - localId: " + idMapping.getLocalId() +
+                    ", serverId: " + idMapping.getServerId() +
+                    ", entityType: " + idMapping.getEntityType());
+        }
     }
 
     public void insertIdMappingSafe(IdMapping idMapping) {

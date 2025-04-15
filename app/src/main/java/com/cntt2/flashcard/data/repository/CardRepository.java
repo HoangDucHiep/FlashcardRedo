@@ -56,7 +56,6 @@ public class CardRepository {
             if (card.getServerId() != null) {
                 idMappingRepository.insertIdMapping(new IdMapping((int) cardId, card.getServerId(), "card"));
             }
-            // Chỉ tạo Review mặc định nếu không phải từ đồng bộ
             if (!fromSync) {
                 Review review = new Review();
                 review.setCardId((int) cardId);
@@ -73,8 +72,6 @@ public class CardRepository {
                     return -1;
                 }
             }
-        } else {
-            Log.e(TAG, "Failed to insert card");
         }
         return cardId;
     }
@@ -112,10 +109,11 @@ public class CardRepository {
             if (serverId == null) {
                 // Nếu card chưa sync, xóa review ngay lập tức
                 reviewRepository.deleteReviewConfirmed(review.getId());
-                Log.d(TAG, "Card not synced, deleted review locally - Review ID: " + review.getId() + " for Card ID: " + card.getId());
+                Log.d(TAG, "Deleted review immediately as card not synced - Review ID: " + review.getId() + " for Card ID: " + card.getId());
             } else {
-                // Nếu card đã sync, đánh dấu review để xóa trong quá trình sync
-                reviewRepository.deleteReview(review.getId());
+                // Nếu card đã sync, đánh dấu review để sync xóa
+                review.setSyncStatus("pending_delete");
+                reviewRepository.updateReview(review, false);
                 Log.d(TAG, "Marked review for deletion - Review ID: " + review.getId() + " for Card ID: " + card.getId());
             }
         } else {

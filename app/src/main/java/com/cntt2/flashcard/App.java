@@ -46,19 +46,19 @@ public class App extends Application {
         deskRepository = new DeskRepository(this);
         folderRepository = new FolderRepository(this);
 
-        scheduleSync();
+        //scheduleSync();
     }
 
-    private void scheduleSync() {
-        OneTimeWorkRequest syncRequest = new OneTimeWorkRequest.Builder(SyncWorker.class)
-                .setInitialDelay(5, TimeUnit.SECONDS) // Chạy sau 5 giây
-                .build();
-        WorkManager.getInstance(this).enqueueUniqueWork(
-                "sync_work",
-                ExistingWorkPolicy.REPLACE,
-                syncRequest
-        );
-    }
+//    private void scheduleSync() {
+//        OneTimeWorkRequest syncRequest = new OneTimeWorkRequest.Builder(SyncWorker.class)
+//                .setInitialDelay(5, TimeUnit.SECONDS) // Chạy sau 5 giây
+//                .build();
+//        WorkManager.getInstance(this).enqueueUniqueWork(
+//                "sync_work",
+//                ExistingWorkPolicy.REPLACE,
+//                syncRequest
+//        );
+//    }
 
     public static App getInstance() {
         return instance;
