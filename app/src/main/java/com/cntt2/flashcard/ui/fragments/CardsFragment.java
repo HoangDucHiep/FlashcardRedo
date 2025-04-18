@@ -58,7 +58,6 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
     private DeskRepository deskRepository = App.getInstance().getDeskRepository();
 
     public CardsFragment() {
-        // Required empty public constructor
     }
 
     public CardsFragment(List<Card> cardList) {

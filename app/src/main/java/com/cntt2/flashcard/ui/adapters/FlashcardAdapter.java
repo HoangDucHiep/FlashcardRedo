@@ -1,5 +1,6 @@
 package com.cntt2.flashcard.ui.adapters;
 
+import android.annotation.SuppressLint;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -28,7 +29,7 @@ public class FlashcardAdapter extends RecyclerView.Adapter<FlashcardAdapter.Card
     private OnCardLongClickListener longClickListener;
     private OnCardClickListener clickListener;
 
-    // Callback interface để xử lý long click
+
     public interface OnCardLongClickListener {
         void onCardLongClick(Card card, int position);
     }
@@ -50,6 +51,7 @@ public class FlashcardAdapter extends RecyclerView.Adapter<FlashcardAdapter.Card
         return new CardViewHolder(view);
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     public void onBindViewHolder(@NonNull CardViewHolder holder, int position) {
         Card card = flashcardList.get(position);
@@ -63,12 +65,12 @@ public class FlashcardAdapter extends RecyclerView.Adapter<FlashcardAdapter.Card
         loadCardContent(holder.cardBack, card.getBack());
 
         holder.cardFront.setOnTouchListener((v, event) -> {
-            holder.itemView.onTouchEvent(event); // Chuyển sự kiện lên itemView
-            return true; // Chặn WebView xử lý sự kiện
+            holder.itemView.onTouchEvent(event);
+            return true;
         });
         holder.cardBack.setOnTouchListener((v, event) -> {
-            holder.itemView.onTouchEvent(event); // Chuyển sự kiện lên itemView
-            return true; // Chặn WebView xử lý sự kiện
+            holder.itemView.onTouchEvent(event);
+            return true;
         });
 
         // Xử lý sự kiện long click
@@ -115,8 +117,8 @@ public class FlashcardAdapter extends RecyclerView.Adapter<FlashcardAdapter.Card
     // Tải nội dung HTML vào WebView
     private void loadCardContent(WebView webView, String content) {
         String cleanedContent = removeAllImageContent(content);
-        String html = "<html><body style='color:white;'>" + (cleanedContent != null ? cleanedContent : "") + "</body></html>";
-        String baseUrl = "content://com.cntt2.flashcard.fileprovider/images/"; // Đảm bảo ảnh tải đúng
+        String html = "<html><body style='background-color: rgb(27, 36, 51); color: white'>" + (cleanedContent != null ? cleanedContent : "") + "</body></html>";
+        String baseUrl = "content://com.cntt2.flashcard.fileprovider/images/";
         webView.loadDataWithBaseURL(baseUrl, html, "text/html", "UTF-8", null);
     }
 

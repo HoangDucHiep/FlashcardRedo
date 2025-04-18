@@ -33,6 +33,7 @@ import com.cntt2.flashcard.data.remote.dto.DeskDto;
 import com.cntt2.flashcard.model.Card;
 import com.cntt2.flashcard.model.Desk;
 import com.cntt2.flashcard.model.Folder;
+import com.cntt2.flashcard.ui.adapters.PublicCardAdapter;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -55,7 +56,7 @@ public class PublicCardFragment extends Fragment {
     private EditText edtSearch;
     private TextView txtCount;
     private Button btnAction;
-    private CardAdapter adapter;
+    private PublicCardAdapter adapter;
     private List<CardDto> cards = new ArrayList<>();
     private List<CardDto> filteredCards = new ArrayList<>();
     private DeskDao deskDao;
@@ -98,21 +99,13 @@ public class PublicCardFragment extends Fragment {
         // Hide To Learn and To Review sections
         view.findViewById(R.id.constraintLayout).setVisibility(View.GONE);
 
-        // Set up button based on whether the desk is public
-        if (isPublic) {
-            btnAction.setText("Clone Desk");
-            btnAction.setOnClickListener(v -> cloneDesk());
-        } else {
-            btnAction.setText("Learn Cards");
-            btnAction.setOnClickListener(v -> {
-                // Implement learn cards functionality if needed
-                Toast.makeText(requireContext(), "Learn Cards not implemented", Toast.LENGTH_SHORT).show();
-            });
-        }
+        btnAction.setText("Clone Desk");
+        btnAction.setOnClickListener(v -> cloneDesk());
+
 
         // Set up RecyclerView
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
-        adapter = new CardAdapter(filteredCards);
+        adapter = new PublicCardAdapter(filteredCards);
         recyclerView.setAdapter(adapter);
 
         // Fetch cards
@@ -165,8 +158,6 @@ public class PublicCardFragment extends Fragment {
     }
 
     private void fetchLocalCards() {
-        // Since we're not mapping server IDs, we can't directly fetch local cards using the server deskId
-        // This method is not typically used for public desks, but if needed, you would need to fetch the local desk ID
         Toast.makeText(requireContext(), "Local cards not supported in this context", Toast.LENGTH_SHORT).show();
     }
 
@@ -295,40 +286,5 @@ public class PublicCardFragment extends Fragment {
         });
     }
 
-    private static class CardAdapter extends RecyclerView.Adapter<CardAdapter.ViewHolder> {
-        private final List<CardDto> cards;
 
-        public CardAdapter(List<CardDto> cards) {
-            this.cards = cards;
-        }
-
-        @NonNull
-        @Override
-        public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_card, parent, false);
-            return new ViewHolder(view);
-        }
-
-        @Override
-        public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-            CardDto card = cards.get(position);
-            holder.tvCardFront.loadDataWithBaseURL(null, card.getFront(), "text/html", "UTF-8", null);
-            holder.tvCardBack.loadDataWithBaseURL(null, card.getBack(), "text/html", "UTF-8", null);
-        }
-
-        @Override
-        public int getItemCount() {
-            return cards.size();
-        }
-
-        static class ViewHolder extends RecyclerView.ViewHolder {
-            WebView tvCardFront, tvCardBack;
-
-            public ViewHolder(@NonNull View itemView) {
-                super(itemView);
-                tvCardFront = itemView.findViewById(R.id.tvCardFront);
-                tvCardBack = itemView.findViewById(R.id.tvCardBack);
-            }
-        }
-    }
 }
