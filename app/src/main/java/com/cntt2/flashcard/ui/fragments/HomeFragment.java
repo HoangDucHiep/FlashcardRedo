@@ -1,8 +1,10 @@
 package com.cntt2.flashcard.ui.fragments;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -59,6 +61,7 @@ public class HomeFragment extends Fragment {
         return new HomeFragment();
     }
 
+    @SuppressLint("ResourceAsColor")
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_home, container, false);
@@ -71,6 +74,11 @@ public class HomeFragment extends Fragment {
         AddFolderAndDeckFAB.setOnClickListener(v -> showCreateBottomSheet());
         searchView = view.findViewById(R.id.SearchFoldersAndDecksSV);
 
+        int searchTextId = searchView.getContext().getResources().getIdentifier("android:id/search_src_text", null, null);
+        EditText searchEditText = searchView.findViewById(searchTextId);
+        if (searchEditText != null) {
+            searchEditText.setTextColor(Color.WHITE);
+        }
 
         ShowFolderAndDeckLV.setOnItemLongClickListener((parent, view1, position, id) -> {
             showPopupMenu(view1, position);
@@ -147,7 +155,6 @@ public class HomeFragment extends Fragment {
         adapter.updateFolderList(nestedFoldersDesks);  // Cập nhật giao diện
         Toast.makeText(getContext(), "Desk visibility updated", Toast.LENGTH_SHORT).show();
     }
-
 
     private void editFolder(Folder folder) {
         showEditFolderDialog(folder);  // Mở dialog để sửa thông tin Folder
