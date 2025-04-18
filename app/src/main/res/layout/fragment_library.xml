@@ -32,14 +32,6 @@
             android:textColor="#FFF"
             android:textColorHint="#AAA" />
 
-        <TextView
-            android:id="@+id/txtCount"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:paddingStart="10dp"
-            android:text="0 / 0"
-            android:textColor="#FFF"
-            android:textSize="14sp" />
     </LinearLayout>
 
     <!-- RecyclerView for Public Desks -->

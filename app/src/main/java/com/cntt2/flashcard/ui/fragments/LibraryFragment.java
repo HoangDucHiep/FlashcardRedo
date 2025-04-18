@@ -21,6 +21,7 @@ import com.cntt2.flashcard.R;
 import com.cntt2.flashcard.data.remote.ApiClient;
 import com.cntt2.flashcard.data.remote.ApiService;
 import com.cntt2.flashcard.data.remote.dto.PublicDeskDto;
+import com.cntt2.flashcard.ui.adapters.PublicDeskAdapter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +35,6 @@ public class LibraryFragment extends Fragment {
 
     private RecyclerView recyclerView;
     private EditText edtSearch;
-    private TextView txtCount;
     private PublicDeskAdapter adapter;
     private List<PublicDeskDto> publicDesks = new ArrayList<>();
     private List<PublicDeskDto> filteredDesks = new ArrayList<>();
@@ -52,7 +52,6 @@ public class LibraryFragment extends Fragment {
         // Initialize views
         recyclerView = view.findViewById(R.id.recyclerView);
         edtSearch = view.findViewById(R.id.edtSearch);
-        txtCount = view.findViewById(R.id.txtCount);
 
         // Set up RecyclerView
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
@@ -99,7 +98,6 @@ public class LibraryFragment extends Fragment {
                     filteredDesks.clear();
                     filteredDesks.addAll(publicDesks);
                     adapter.notifyDataSetChanged();
-                    updateCount();
                 } else {
                     Toast.makeText(requireContext(), "Failed to load public desks", Toast.LENGTH_SHORT).show();
                 }
@@ -126,59 +124,7 @@ public class LibraryFragment extends Fragment {
             }
         }
         adapter.notifyDataSetChanged();
-        updateCount();
     }
 
-    private void updateCount() {
-        txtCount.setText(filteredDesks.size() + " / " + publicDesks.size());
-    }
 
-    // Adapter for public desks
-    public class PublicDeskAdapter extends RecyclerView.Adapter<PublicDeskAdapter.ViewHolder> {
-        private final List<PublicDeskDto> desks;
-        private final OnDeskClickListener listener;
-
-        public PublicDeskAdapter(List<PublicDeskDto> desks, OnDeskClickListener listener) {
-            this.desks = desks;
-            this.listener = listener;
-        }
-
-        @NonNull
-        @Override
-        public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_public_desk, parent, false);
-            return new ViewHolder(view);
-        }
-
-        @Override
-        public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-            PublicDeskDto desk = desks.get(position);
-            holder.tvDeskName.setText(desk.getName());
-            holder.tvCardCount.setText("0 Cards"); // Note: API doesn't provide card count, adjust if available
-            holder.tvCreator.setText("by: Unknown"); // API doesn't provide creator name, adjust if available
-            holder.tvLearners.setText("0 Learners"); // API doesn't provide learner count, adjust if available
-            holder.itemView.setOnClickListener(v -> listener.onDeskClick(desk));
-        }
-
-        @Override
-        public int getItemCount() {
-            return desks.size();
-        }
-
-        private class ViewHolder extends RecyclerView.ViewHolder {
-            TextView tvDeskName, tvCardCount, tvCreator, tvLearners;
-
-            public ViewHolder(@NonNull View itemView) {
-                super(itemView);
-                tvDeskName = itemView.findViewById(R.id.tvDeskName);
-                tvCardCount = itemView.findViewById(R.id.tvCardCount);
-                tvCreator = itemView.findViewById(R.id.tvCreator);
-                tvLearners = itemView.findViewById(R.id.tvLearners);
-            }
-        }
-    }
-
-    interface OnDeskClickListener {
-        void onDeskClick(PublicDeskDto desk);
-    }
 }

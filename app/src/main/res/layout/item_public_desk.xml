@@ -40,14 +40,6 @@
             android:textSize="14sp" />
 
         <TextView
-            android:id="@+id/tvLearners"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="0 Learners"
-            android:textColor="#AAA"
-            android:textSize="14sp" />
-
-        <TextView
             android:id="@+id/tvCreator"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

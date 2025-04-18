@@ -14,6 +14,10 @@ public class PublicDeskDto {
     @SerializedName("owner")
     private String owner;
 
+
+    @SerializedName("cardCount")
+    private int cardCount;
+
     // Getters and setters
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -25,5 +29,14 @@ public class PublicDeskDto {
     }
     public void setOwner(String owner) {
         this.owner = owner;
+    }
+
+
+    public int getCardCount() {
+        return cardCount;
+    }
+
+    public void setCardCount(int cardCount) {
+        this.cardCount = cardCount;
     }
 }

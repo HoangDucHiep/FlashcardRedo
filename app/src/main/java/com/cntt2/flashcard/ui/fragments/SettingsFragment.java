@@ -23,6 +23,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
+import com.cntt2.flashcard.App;
 import com.cntt2.flashcard.R;
 import com.cntt2.flashcard.auth.AuthManager;
 import com.cntt2.flashcard.data.local.DatabaseHelper;
@@ -43,7 +44,7 @@ public class SettingsFragment extends Fragment {
     private static final String PREFS_NAME = "FlashcardPrefs";
     private static final String KEY_REMINDER_HOUR = "reminder_hour";
     private static final String KEY_REMINDER_MINUTE = "reminder_minute";
-    private static final String KEY_USER_NAME = "user_name";
+
 
     private int pendingHour = -1;
     private int pendingMinute = -1;
@@ -94,7 +95,8 @@ public class SettingsFragment extends Fragment {
         sharedPreferences = requireActivity().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
 
         // Display user's name
-        String userName = sharedPreferences.getString(KEY_USER_NAME, "User");
+        AuthManager authManager = new AuthManager(requireContext());
+        String userName = authManager.getUsername();
         tvUserName.setText(userName);
 
         // Load and display saved reminder time
