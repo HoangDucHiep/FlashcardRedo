@@ -870,7 +870,6 @@ public class SyncManager {
         pendingCards.addAll(cardRepository.getPendingCards("pending_update"));
         pendingCards.addAll(cardRepository.getPendingCards("pending_delete"));
 
-        // Xử lý các card pending_delete không có serverId trước
         Iterator<Card> iterator = pendingCards.iterator();
         while (iterator.hasNext()) {
             Card card = iterator.next();

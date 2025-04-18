@@ -71,6 +71,7 @@ public class HomeFragment extends Fragment {
         AddFolderAndDeckFAB.setOnClickListener(v -> showCreateBottomSheet());
         searchView = view.findViewById(R.id.SearchFoldersAndDecksSV);
 
+
         ShowFolderAndDeckLV.setOnItemLongClickListener((parent, view1, position, id) -> {
             showPopupMenu(view1, position);
             return true;
