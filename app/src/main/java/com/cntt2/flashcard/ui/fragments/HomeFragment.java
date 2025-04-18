@@ -171,9 +171,9 @@ public class HomeFragment extends Fragment {
         Spinner parentFolderSpinner = view.findViewById(R.id.parentFolderSpinner);
         List<String> folderNames = getFolderNamesWithIndent(folder.getId());
         ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(
-                requireContext(), android.R.layout.simple_spinner_item, folderNames
+                requireContext(), R.layout.spinner_item, folderNames
         );
-        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         parentFolderSpinner.setAdapter(spinnerAdapter);
 
         List<Folder> allFolders = getAllFoldersList(folder.getId());
@@ -241,10 +241,10 @@ public class HomeFragment extends Fragment {
         List<String> folderNames = getFolderNamesWithIndent();
         folderNames.set(0, getString(R.string.select_folder_prompt)); // "Please select a folder"
         ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(
-                requireContext(), android.R.layout.simple_spinner_item, folderNames
+                requireContext(), R.layout.spinner_item, folderNames
         );
 
-        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         folderSpinner.setAdapter(spinnerAdapter);
 
         List<Folder> allFolders = getAllFoldersList();
@@ -337,9 +337,9 @@ public class HomeFragment extends Fragment {
         Spinner parentFolderSpinner = view.findViewById(R.id.parentFolderSpinner);
         List<String> folderNames = getFolderNamesWithIndent();
         ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(
-                requireContext(), android.R.layout.simple_spinner_item, folderNames
+                requireContext(), R.layout.spinner_item, folderNames
         );
-        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         parentFolderSpinner.setAdapter(spinnerAdapter);
 
         view.findViewById(R.id.btnFolderSave).setOnClickListener(v -> {
@@ -390,9 +390,9 @@ public class HomeFragment extends Fragment {
         List<String> folderNames = getFolderNamesWithIndent();
         folderNames.set(0, getString(R.string.select_folder_prompt)); // "Please select a folder"
         ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(
-                requireContext(), android.R.layout.simple_spinner_item, folderNames
+                requireContext(), R.layout.spinner_item, folderNames
         );
-        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         folderSpinner.setAdapter(spinnerAdapter);
 
         view.findViewById(R.id.btnDeckSave).setOnClickListener(v -> {

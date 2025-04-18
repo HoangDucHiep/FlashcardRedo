@@ -5,11 +5,15 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.FragmentTransaction;
 
+import com.cntt2.flashcard.App;
 import com.cntt2.flashcard.R;
+import com.cntt2.flashcard.data.repository.DeskRepository;
+import com.cntt2.flashcard.model.Desk;
 import com.cntt2.flashcard.ui.fragments.CardsFragment;
 import com.cntt2.flashcard.ui.fragments.LearnFragment;
 import com.cntt2.flashcard.ui.fragments.StatisticsFragment;
@@ -22,8 +26,11 @@ public class ListCardActivity extends AppCompatActivity {
     private Button btnCard;
     private Button btnThongKe;
     private Button btnBack;
+    private TextView txtDeskName;
 
     private int deskId;
+
+    private DeskRepository deskRepository = App.getInstance().getDeskRepository();
 
     private static final int ADD_CARD_REQUEST_CODE = 100;
     private static final int EDIT_CARD_REQUEST_CODE = 101;
@@ -32,6 +39,8 @@ public class ListCardActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_list_card);
+
+        txtDeskName = findViewById(R.id.txtDeskName);
 
         btnAdd = findViewById(R.id.btnAdd);
         btnCard = findViewById(R.id.btnCard);
@@ -44,6 +53,14 @@ public class ListCardActivity extends AppCompatActivity {
         {
             finish();
             return;
+        }
+
+        Desk desk = deskRepository.getDeskById(deskId);
+
+        if (desk != null) {
+            txtDeskName.setText(desk.getName());
+        } else {
+            finish();
         }
 
         btnCard.setOnClickListener(view -> {

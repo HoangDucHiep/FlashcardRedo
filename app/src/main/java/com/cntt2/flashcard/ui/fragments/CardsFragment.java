@@ -47,7 +47,6 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
     private List<Card> newToLearn = new ArrayList<>();
 
     private EditText edtSearch;
-    private TextView txtCount;
     private TextView toLearn;
     private TextView toReview;
     private Button btnStartLearnSession;
@@ -91,7 +90,6 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
 
         edtSearch = view.findViewById(R.id.edtSearch);
-        txtCount = view.findViewById(R.id.txtCount);
         btnStartLearnSession = view.findViewById(R.id.btnStartLearnSession);
         toLearn = view.findViewById(R.id.toLearn);
         toReview = view.findViewById(R.id.toReview);
@@ -109,7 +107,6 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
 
         adapter = new FlashcardAdapter(cardList, this, this); // Truyền this làm listener
         recyclerView.setAdapter(adapter);
-        updateCardCount();
 
         edtSearch.addTextChangedListener(new android.text.TextWatcher() {
             @Override
@@ -145,7 +142,6 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
             updateToLearnAndToReview();
             cardList = cardRepository.getCardsByDeskId(deskId);
             adapter.setData(cardList);
-            updateCardCount();
         }
     }
 
@@ -211,8 +207,8 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
             }
         }
 
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, deskNameList);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(getContext(), R.layout.spinner_item, deskNameList);
+        adapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         deskSpinner.setAdapter(adapter);
 
         view.findViewById(R.id.btnCardChangeDeskSave).setOnClickListener(new View.OnClickListener() {
@@ -239,14 +235,10 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
         cardRepository.deleteCard(card);
         cardList.remove(position);
         adapter.notifyItemRemoved(position);
-        updateCardCount();
         updateToLearnAndToReview();
         Toast.makeText(getContext(), "Đã xóa thẻ", Toast.LENGTH_SHORT).show();
     }
 
-    private void updateCardCount() {
-        txtCount.setText(cardList.size() + " / " + MAX_CARDS);
-    }
 
     private void filterCards(String keyword) {
         List<Card> filtered = new ArrayList<>();
@@ -269,7 +261,6 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
     public void updateCardList() {
         cardList = cardRepository.getCardsByDeskId(deskId);
         adapter.setData(cardList);
-        updateCardCount();
         updateToLearnAndToReview();
     }
 }

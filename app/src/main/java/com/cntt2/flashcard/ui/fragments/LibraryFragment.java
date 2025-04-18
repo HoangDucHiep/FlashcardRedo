@@ -20,7 +20,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.cntt2.flashcard.R;
 import com.cntt2.flashcard.data.remote.ApiClient;
 import com.cntt2.flashcard.data.remote.ApiService;
-import com.cntt2.flashcard.data.remote.dto.DeskDto;
+import com.cntt2.flashcard.data.remote.dto.PublicDeskDto;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,8 +36,8 @@ public class LibraryFragment extends Fragment {
     private EditText edtSearch;
     private TextView txtCount;
     private PublicDeskAdapter adapter;
-    private List<DeskDto> publicDesks = new ArrayList<>();
-    private List<DeskDto> filteredDesks = new ArrayList<>();
+    private List<PublicDeskDto> publicDesks = new ArrayList<>();
+    private List<PublicDeskDto> filteredDesks = new ArrayList<>();
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -89,10 +89,10 @@ public class LibraryFragment extends Fragment {
 
     private void fetchPublicDesks() {
         ApiService apiService = ApiClient.getApiService();
-        Call<List<DeskDto>> call = apiService.getPublicDesks();
-        call.enqueue(new Callback<List<DeskDto>>() {
+        Call<List<PublicDeskDto>> call = apiService.getPublicDesks();
+        call.enqueue(new Callback<List<PublicDeskDto>>() {
             @Override
-            public void onResponse(Call<List<DeskDto>> call, Response<List<DeskDto>> response) {
+            public void onResponse(Call<List<PublicDeskDto>> call, Response<List<PublicDeskDto>> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     publicDesks.clear();
                     publicDesks.addAll(response.body());
@@ -106,7 +106,7 @@ public class LibraryFragment extends Fragment {
             }
 
             @Override
-            public void onFailure(Call<List<DeskDto>> call, Throwable t) {
+            public void onFailure(Call<List<PublicDeskDto>> call, Throwable t) {
                 Toast.makeText(requireContext(), "Error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
                 Log.e("LibraryFragment", "Failed to fetch public desks", t);
             }
@@ -119,7 +119,7 @@ public class LibraryFragment extends Fragment {
             filteredDesks.addAll(publicDesks);
         } else {
             String lowerQuery = query.toLowerCase(Locale.getDefault());
-            for (DeskDto desk : publicDesks) {
+            for (PublicDeskDto desk : publicDesks) {
                 if (desk.getName().toLowerCase(Locale.getDefault()).contains(lowerQuery)) {
                     filteredDesks.add(desk);
                 }
@@ -134,11 +134,11 @@ public class LibraryFragment extends Fragment {
     }
 
     // Adapter for public desks
-    private static class PublicDeskAdapter extends RecyclerView.Adapter<PublicDeskAdapter.ViewHolder> {
-        private final List<DeskDto> desks;
+    public class PublicDeskAdapter extends RecyclerView.Adapter<PublicDeskAdapter.ViewHolder> {
+        private final List<PublicDeskDto> desks;
         private final OnDeskClickListener listener;
 
-        public PublicDeskAdapter(List<DeskDto> desks, OnDeskClickListener listener) {
+        public PublicDeskAdapter(List<PublicDeskDto> desks, OnDeskClickListener listener) {
             this.desks = desks;
             this.listener = listener;
         }
@@ -152,7 +152,7 @@ public class LibraryFragment extends Fragment {
 
         @Override
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-            DeskDto desk = desks.get(position);
+            PublicDeskDto desk = desks.get(position);
             holder.tvDeskName.setText(desk.getName());
             holder.tvCardCount.setText("0 Cards"); // Note: API doesn't provide card count, adjust if available
             holder.tvCreator.setText("by: Unknown"); // API doesn't provide creator name, adjust if available
@@ -165,7 +165,7 @@ public class LibraryFragment extends Fragment {
             return desks.size();
         }
 
-        static class ViewHolder extends RecyclerView.ViewHolder {
+        private class ViewHolder extends RecyclerView.ViewHolder {
             TextView tvDeskName, tvCardCount, tvCreator, tvLearners;
 
             public ViewHolder(@NonNull View itemView) {
@@ -179,6 +179,6 @@ public class LibraryFragment extends Fragment {
     }
 
     interface OnDeskClickListener {
-        void onDeskClick(DeskDto desk);
+        void onDeskClick(PublicDeskDto desk);
     }
 }

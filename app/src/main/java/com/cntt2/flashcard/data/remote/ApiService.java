@@ -8,6 +8,7 @@ import com.cntt2.flashcard.data.remote.dto.LoginRequest;
 import com.cntt2.flashcard.data.remote.dto.LoginResponse;
 import com.cntt2.flashcard.data.remote.dto.LogoutResponse;
 import com.cntt2.flashcard.data.remote.dto.PostFolderDto;
+import com.cntt2.flashcard.data.remote.dto.PublicDeskDto;
 import com.cntt2.flashcard.data.remote.dto.RegisterRequest;
 import com.cntt2.flashcard.data.remote.dto.ReviewDto;
 import com.cntt2.flashcard.data.remote.dto.SessionDto;
@@ -61,7 +62,7 @@ public interface ApiService {
     Call<List<DeskDto>> getUserDesks();
 
     @GET("api/desk/public")
-    Call<List<DeskDto>> getPublicDesks();
+    Call<List<PublicDeskDto>> getPublicDesks();
 
     @PUT("api/desk/{id}")
     Call<Void> updateDesk(@Path("id") String id, @Body DeskDto desk);

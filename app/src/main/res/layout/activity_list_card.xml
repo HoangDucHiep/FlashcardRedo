@@ -30,56 +30,61 @@
         app:layout_constraintStart_toStartOf="parent" />
 
     <!-- Tên bộ thẻ (desk name) -->
+
+    <!-- 2 nút Card và Learn -->
+
     <TextView
         android:id="@+id/txtDeskName"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Tên Bộ Thẻ"
-        android:textSize="20sp"
-        android:textColor="@android:color/white"
-        android:textStyle="bold"
+        android:layout_marginTop="28dp"
         android:gravity="center"
-        android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@id/btnBack"
+        android:text="Tên Bộ Thẻ"
+        android:textColor="@android:color/white"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- 2 nút Card và Learn -->
     <LinearLayout
         android:id="@+id/layoutToggle"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center"
+        android:layout_marginTop="24dp"
         android:background="@drawable/toggle_background"
+        android:gravity="center"
+        android:orientation="horizontal"
         android:padding="4dp"
-        app:layout_constraintTop_toBottomOf="@id/txtDeskName"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintTop_toBottomOf="@id/txtDeskName">
 
         <Button
             android:id="@+id/btnCard"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Thẻ"
-            android:textColor="@android:color/white"
-            app:backgroundTint="@null"
             android:background="@drawable/toggle_button_background"
             android:padding="8dp"
-            android:textSize="14sp" />
+            android:text="Thẻ"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            app:backgroundTint="@null" />
 
         <Button
             android:id="@+id/btnThongKe"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Thống kê"
-            android:textColor="@android:color/white"
-            app:backgroundTint="@null"
             android:background="@android:color/transparent"
             android:padding="8dp"
-            android:textSize="14sp" />
+            android:text="Thống kê"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            app:backgroundTint="@null" />
     </LinearLayout>
 
     <FrameLayout

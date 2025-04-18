@@ -93,7 +93,6 @@ public class PublicCardFragment extends Fragment {
         // Initialize views
         recyclerView = view.findViewById(R.id.recyclerView);
         edtSearch = view.findViewById(R.id.edtSearch);
-        txtCount = view.findViewById(R.id.txtCount);
         btnAction = view.findViewById(R.id.btnStartLearnSession);
 
         // Hide To Learn and To Review sections
@@ -152,7 +151,6 @@ public class PublicCardFragment extends Fragment {
                     filteredCards.clear();
                     filteredCards.addAll(cards);
                     adapter.notifyDataSetChanged();
-                    updateCount();
                 } else {
                     Toast.makeText(requireContext(), "Failed to load cards", Toast.LENGTH_SHORT).show();
                 }
@@ -186,12 +184,8 @@ public class PublicCardFragment extends Fragment {
             }
         }
         adapter.notifyDataSetChanged();
-        updateCount();
     }
 
-    private void updateCount() {
-        txtCount.setText(filteredCards.size() + " / " + cards.size());
-    }
 
     private void cloneDesk() {
         // Show folder selection dialog
