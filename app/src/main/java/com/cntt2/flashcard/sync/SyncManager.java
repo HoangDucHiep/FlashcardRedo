@@ -1047,23 +1047,26 @@ public class SyncManager {
 
     private void deleteCardOnServer(final Card card, final List<Card> pendingCards, final SyncCallback callback) {
         String serverId = idMappingRepository.getServerIdByLocalId(card.getId(), "card");
-        if (serverId == null) {
+        String serverDeskId = idMappingRepository.getServerIdByLocalId(card.getDeskId(), "desk");
+        if (serverId == null || serverDeskId == null) {
             cardRepository.deleteCardConfirmed(card.getId());
             pendingCards.remove(card);
             Log.d(TAG, "No serverId found, deleted card locally: " + card.getId());
-            callback.onSuccess(); // Chỉ gọi onSuccess, không để lỗi xảy ra
+            callback.onSuccess();
             return;
         }
 
         apiService.deleteCard(serverId).enqueue(new Callback<Void>() {
             @Override
             public void onResponse(Call<Void> call, Response<Void> response) {
-                if (response.isSuccessful()) {
+                if (response.isSuccessful() || response.code() == 400) {
                     cardRepository.deleteCardConfirmed(card.getId());
                     pendingCards.remove(card);
-                    Log.d(TAG, "Deleted card on server with serverId: " + serverId);
+                    Log.d(TAG, "Deleted card on server with serverId: " + serverId + " (HTTP " + response.code() + ")");
                     callback.onSuccess();
                 } else {
+                    cardRepository.deleteCardConfirmed(card.getId());
+                    pendingCards.remove(card);
                     Log.e(TAG, "Failed to delete card: " + response.code());
                     callback.onFailure("Failed to delete card: " + response.message());
                 }

@@ -71,8 +71,13 @@ public class DeskRepository {
         deskDao.updateDesk(desk);
         Log.d(TAG, "Marked desk for deletion - ID: " + desk.getId());
         List<Card> cards = cardRepository.getCardsByDeskId(desk.getId());
+        String serverId = idMappingRepository.getServerIdByLocalId(desk.getId(), "desk");
         for (Card card : cards) {
-            cardRepository.deleteCard(card);
+            if (serverId == null) {
+                cardRepository.deleteCardConfirmed(card.getId());
+            } else {
+                cardRepository.deleteCard(card);
+            }
         }
         List<LearningSession> sessions = learningSessionRepository.getSessionsByDeskId(desk.getId());
         for (LearningSession session : sessions) {
