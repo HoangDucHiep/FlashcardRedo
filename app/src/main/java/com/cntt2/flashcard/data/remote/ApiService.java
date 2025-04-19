@@ -67,8 +67,8 @@ public interface ApiService {
     @PUT("api/desk/{id}")
     Call<Void> updateDesk(@Path("id") String id, @Body DeskDto desk);
 
-    @POST("api/desk/{id}/clone")
-    Call<DeskDto> cloneDesk(@Path("id") String id);
+    @GET("api/desk/{id}")
+    Call<DeskDto> getDeskById(@Path("id") String id);
 
     @DELETE("api/desk/{id}")
     Call<Void> deleteDesk(@Path("id") String id);
