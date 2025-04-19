@@ -26,16 +26,20 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.Observer;
 import androidx.work.Constraints;
 import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.NetworkType;
+import androidx.work.OneTimeWorkRequest;
 import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
 import com.cntt2.flashcard.R;
 import com.cntt2.flashcard.auth.AuthManager;
 import com.cntt2.flashcard.data.local.DatabaseHelper;
 import com.cntt2.flashcard.sync.SyncManager;
+import com.cntt2.flashcard.sync.SyncWorker;
 import com.cntt2.flashcard.ui.activities.LoginActivity;
 import com.cntt2.flashcard.utils.ConfirmDialog;
 import com.cntt2.flashcard.utils.NotificationWorker;
@@ -145,7 +149,19 @@ public class SettingsFragment extends Fragment {
         });
 
         // Set up logout button
-        btnLogout.setOnClickListener(v -> logout());
+        btnLogout.setOnClickListener(v -> {
+            ConfirmDialog.createConfirmDialog(
+                    requireContext(),
+                    "Logout",
+                    "Are you sure you want to log out?",
+                    v1 -> {
+                        logout();
+                    },
+                    v12 -> {
+                        // Do nothing on cancel
+                    }
+            ).show();
+        });
 
         return view;
     }
@@ -252,91 +268,39 @@ public class SettingsFragment extends Fragment {
         progressDialog.show();
 
         // Perform sync in a background thread
-        new Thread(() -> {
-            SyncManager syncManager = new SyncManager(requireContext());
-            CountDownLatch latch = new CountDownLatch(1);
+        OneTimeWorkRequest syncWorkRequest = new OneTimeWorkRequest.Builder(SyncWorker.class).build();
 
-            syncManager.syncFolders(new SyncManager.SyncCallback() {
-                @Override
-                public void onSuccess() {
-                    syncManager.syncDesks(new SyncManager.SyncCallback() {
-                        @Override
-                        public void onSuccess() {
-                            syncManager.syncSessions(new SyncManager.SyncCallback() {
-                                @Override
-                                public void onSuccess() {
-                                    syncManager.syncCards(new SyncManager.SyncCallback() {
-                                        @Override
-                                        public void onSuccess() {
-                                            syncManager.syncReviews(new SyncManager.SyncCallback() {
-                                                @Override
-                                                public void onSuccess() {
-                                                    latch.countDown();
-                                                }
+        WorkManager workManager = WorkManager.getInstance(requireContext());
+        workManager.enqueue(syncWorkRequest);
 
-                                                @Override
-                                                public void onFailure(String error) {
-                                                    requireActivity().runOnUiThread(() ->
-                                                            Toast.makeText(requireContext(), "Review sync failed: " + error, Toast.LENGTH_LONG).show());
-                                                    latch.countDown();
-                                                }
-                                            });
-                                        }
+        workManager.getWorkInfoByIdLiveData(syncWorkRequest.getId())
+                .observe(getViewLifecycleOwner(), new Observer<WorkInfo>() {
+                    @Override
+                    public void onChanged(WorkInfo workInfo) {
+                        if (workInfo != null && workInfo.getState().isFinished()) {
+                            progressDialog.dismiss();
+                            if (workInfo.getState() == WorkInfo.State.SUCCEEDED) {
+                                Toast.makeText(requireContext(), "Sync completed successfully.", Toast.LENGTH_SHORT).show();
+                                performLogout();
+                            } else {
+                                String errorMessage = workInfo.getOutputData().getString(SyncWorker.KEY_ERROR_MESSAGE);
+                                boolean isTimeout = workInfo.getOutputData().getBoolean(SyncWorker.KEY_TIMEOUT, false);
 
-                                        @Override
-                                        public void onFailure(String error) {
-                                            requireActivity().runOnUiThread(() ->
-                                                    Toast.makeText(requireContext(), "Card sync failed: " + error, Toast.LENGTH_LONG).show());
-                                            latch.countDown();
-                                        }
-                                    });
+                                if (isTimeout) {
+                                    Toast.makeText(requireContext(), "Sync timed out, logging out...", Toast.LENGTH_LONG).show();
+                                } else if (errorMessage != null) {
+                                    Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_LONG).show();
+                                } else {
+                                    Toast.makeText(requireContext(), "Sync failed, logging out...", Toast.LENGTH_LONG).show();
                                 }
+                                performLogout();
+                            }
 
-                                @Override
-                                public void onFailure(String error) {
-                                    requireActivity().runOnUiThread(() ->
-                                            Toast.makeText(requireContext(), "Session sync failed: " + error, Toast.LENGTH_LONG).show());
-                                    latch.countDown();
-                                }
-                            });
+                            workManager.getWorkInfoByIdLiveData((syncWorkRequest.getId()))
+                                    .removeObservers(getViewLifecycleOwner());
                         }
-
-                        @Override
-                        public void onFailure(String error) {
-                            requireActivity().runOnUiThread(() ->
-                                    Toast.makeText(requireContext(), "Desk sync failed: " + error, Toast.LENGTH_LONG).show());
-                            latch.countDown();
-                        }
-                    });
-                }
-
-                @Override
-                public void onFailure(String error) {
-                    requireActivity().runOnUiThread(() ->
-                            Toast.makeText(requireContext(), "Folder sync failed: " + error, Toast.LENGTH_LONG).show());
-                    latch.countDown();
-                }
-            });
-
-            try {
-                boolean completed = latch.await(30, TimeUnit.SECONDS);
-                requireActivity().runOnUiThread(() -> {
-                    progressDialog.dismiss();
-                    if (!completed) {
-                        Toast.makeText(requireContext(), "Sync timed out. Proceeding with logout.", Toast.LENGTH_LONG).show();
-                    } else {
-                        Toast.makeText(requireContext(), "Sync completed successfully.", Toast.LENGTH_SHORT).show();
                     }
-                    performLogout();
                 });
-            } catch (InterruptedException e) {
-                requireActivity().runOnUiThread(() -> {
-                    progressDialog.dismiss();
-                    Toast.makeText(requireContext(), "Sync interrupted: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                    performLogout();
-                });
-            }
-        }).start();
     }
 
     private void performLogout() {

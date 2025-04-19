@@ -15,9 +15,11 @@ public class SyncWorker extends Worker {
     private static final String TAG = "SyncWorker";
     public static final String KEY_SYNC_RESULT = "sync_result";
     public static final String KEY_ERROR_MESSAGE = "error_message";
+    public static final String KEY_TIMEOUT = "timeout";
 
     private boolean isSuccessful = true;
     private String errorMessage = null;
+    private boolean isTimeout = false;
     private CountDownLatch latch;
 
     public SyncWorker(@NonNull Context context, @NonNull WorkerParameters params) {
@@ -33,6 +35,7 @@ public class SyncWorker extends Worker {
         // Reset state
         isSuccessful = true;
         errorMessage = null;
+        isTimeout = false;
 
         // Synchronize folders
         syncManager.syncFolders(new SyncManager.SyncCallback() {
@@ -117,6 +120,7 @@ public class SyncWorker extends Worker {
             if (!completed) {
                 Log.e(TAG, "Sync operation timed out");
                 isSuccessful = false;
+                isTimeout = true;
                 errorMessage = "Sync operation timed out";
             }
         } catch (InterruptedException e) {
@@ -131,6 +135,7 @@ public class SyncWorker extends Worker {
             Data outputData = new Data.Builder()
                     .putString(KEY_SYNC_RESULT, "Sync failed")
                     .putString(KEY_ERROR_MESSAGE, errorMessage)
+                    .putBoolean(KEY_TIMEOUT, isTimeout)
                     .build();
             return Result.failure(outputData);
         }
