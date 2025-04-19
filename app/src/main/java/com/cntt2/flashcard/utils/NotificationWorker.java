@@ -43,7 +43,7 @@ public class NotificationWorker extends Worker  {
         );
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(getApplicationContext(), CHANNEL_ID)
-                .setSmallIcon(R.drawable.library)
+                .setSmallIcon(R.drawable.app_icon)
                 .setContentTitle("Time to Study")
                 .setContentText("Don't forget to review your cards today!")
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
