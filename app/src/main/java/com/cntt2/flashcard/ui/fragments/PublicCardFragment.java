@@ -7,7 +7,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.webkit.WebView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -22,14 +21,15 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.cntt2.flashcard.App;
 import com.cntt2.flashcard.R;
-import com.cntt2.flashcard.data.local.dao.CardDao;
-import com.cntt2.flashcard.data.local.dao.DeskDao;
-import com.cntt2.flashcard.data.local.dao.FolderDao;
 import com.cntt2.flashcard.data.remote.ApiClient;
 import com.cntt2.flashcard.data.remote.ApiService;
 import com.cntt2.flashcard.data.remote.dto.CardDto;
 import com.cntt2.flashcard.data.remote.dto.DeskDto;
+import com.cntt2.flashcard.data.repository.CardRepository;
+import com.cntt2.flashcard.data.repository.DeskRepository;
+import com.cntt2.flashcard.data.repository.FolderRepository;
 import com.cntt2.flashcard.model.Card;
 import com.cntt2.flashcard.model.Desk;
 import com.cntt2.flashcard.model.Folder;
@@ -59,8 +59,9 @@ public class PublicCardFragment extends Fragment {
     private PublicCardAdapter adapter;
     private List<CardDto> cards = new ArrayList<>();
     private List<CardDto> filteredCards = new ArrayList<>();
-    private DeskDao deskDao;
-    private CardDao cardDao;
+    private DeskRepository deskRepository;
+    private CardRepository cardRepository;
+    private FolderRepository folderRepository;
 
     public PublicCardFragment() {
         // Required empty public constructor
@@ -82,8 +83,9 @@ public class PublicCardFragment extends Fragment {
             deskId = getArguments().getString(ARG_DESK_ID);
             isPublic = getArguments().getBoolean(ARG_IS_PUBLIC);
         }
-        deskDao = new DeskDao(requireContext());
-        cardDao = new CardDao(requireContext());
+        deskRepository = App.getInstance().getDeskRepository();
+        cardRepository = App.getInstance().getCardRepository();
+        folderRepository = App.getInstance().getFolderRepository();
     }
 
     @Nullable
@@ -101,7 +103,6 @@ public class PublicCardFragment extends Fragment {
 
         btnAction.setText("Clone Desk");
         btnAction.setOnClickListener(v -> cloneDesk());
-
 
         // Set up RecyclerView
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
@@ -177,7 +178,6 @@ public class PublicCardFragment extends Fragment {
         adapter.notifyDataSetChanged();
     }
 
-
     private void cloneDesk() {
         // Show folder selection dialog
         showFolderSelectionDialog();
@@ -187,9 +187,8 @@ public class PublicCardFragment extends Fragment {
         AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
         builder.setTitle("Select Folder");
 
-        // Fetch all folders
-        FolderDao folderDao = new FolderDao(requireContext());
-        List<Folder> folders = folderDao.getAllFolders();
+        // Fetch all folders using FolderRepository
+        List<Folder> folders = folderRepository.getAllFolders();
         List<String> folderNames = new ArrayList<>();
         List<Integer> folderIds = new ArrayList<>();
         folderNames.add("No Folder");
@@ -201,8 +200,12 @@ public class PublicCardFragment extends Fragment {
 
         // Create spinner
         Spinner spinner = new Spinner(requireContext());
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_item, folderNames);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                requireContext(),
+                R.layout.spinner_item,  // Layout tùy chỉnh cho item
+                folderNames
+        );
+        adapter.setDropDownViewResource(R.layout.spinner_dropdown_item);  // Layout tùy chỉnh cho dropdown
         spinner.setAdapter(adapter);
 
         builder.setView(spinner);
@@ -218,73 +221,60 @@ public class PublicCardFragment extends Fragment {
     }
 
     private void performClone(Integer selectedFolderId) {
+        // Lấy thông tin desk từ server để lấy tên desk
         ApiService apiService = ApiClient.getApiService();
-        Call<DeskDto> call = apiService.cloneDesk(deskId);
-        call.enqueue(new Callback<DeskDto>() {
-            @Override
-            public void onResponse(Call<DeskDto> call, Response<DeskDto> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    DeskDto clonedDeskDto = response.body();
-                    // Create a new desk in the local database
-                    Desk desk = new Desk();
-                    desk.setFolderId(selectedFolderId);
-                    desk.setName(clonedDeskDto.getName());
-                    desk.setPublic(false); // Cloned desk should not be public
-                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault());
-                    desk.setCreatedAt(sdf.format(new Date()));
-                    desk.setLastModified(sdf.format(new Date()));
-                    desk.setSyncStatus("pending_create"); // Mark as pending for sync if needed
-
-                    // Insert desk into local database
-                    long localId = deskDao.insertDesk(desk);
-                    desk.setId((int) localId);
-
-                    // Fetch and save the cards for the cloned desk
-                    fetchAndSaveClonedCards(clonedDeskDto.getId(), (int) localId);
-
-                    Toast.makeText(requireContext(), "Desk cloned successfully", Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(requireContext(), "Failed to clone desk", Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<DeskDto> call, Throwable t) {
-                Toast.makeText(requireContext(), "Error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
-                Log.e("PublicCardFragment", "Failed to clone desk", t);
-            }
-        });
-    }
-
-    private void fetchAndSaveClonedCards(String clonedDeskServerId, int localDeskId) {
-        ApiService apiService = ApiClient.getApiService();
-        Call<List<CardDto>> call = apiService.getCardsByDeskId(clonedDeskServerId);
+        Call<List<CardDto>> call = apiService.getCardsByDeskId(deskId);
         call.enqueue(new Callback<List<CardDto>>() {
             @Override
             public void onResponse(Call<List<CardDto>> call, Response<List<CardDto>> response) {
                 if (response.isSuccessful() && response.body() != null) {
+                    // Tạo desk mới cục bộ
+                    Desk newDesk = new Desk();
+                    newDesk.setFolderId(selectedFolderId);
+                    newDesk.setName("Cloned Desk " + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date()));
+                    newDesk.setPublic(false);
                     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault());
-                    for (CardDto cardDto : response.body()) {
-                        Card card = new Card();
-                        card.setDeskId(localDeskId);
-                        card.setFront(cardDto.getFront());
-                        card.setBack(cardDto.getBack());
-                        card.setCreatedAt(sdf.format(new Date()));
-                        card.setLastModified(sdf.format(new Date()));
-                        card.setSyncStatus("pending_create"); // Mark as pending for sync if needed
+                    newDesk.setCreatedAt(sdf.format(new Date()));
+                    newDesk.setLastModified(sdf.format(new Date()));
+                    newDesk.setSyncStatus("pending_create");
 
-                        // Insert card into local database
-                        cardDao.insertCard(card);
+                    // Chèn desk vào database cục bộ
+                    long localDeskId = deskRepository.insertDesk(newDesk);
+                    if (localDeskId == -1) {
+                        Toast.makeText(requireContext(), "Failed to create cloned desk", Toast.LENGTH_SHORT).show();
+                        return;
                     }
+
+                    // Tạo các thẻ mới cục bộ
+                    List<CardDto> cards = response.body();
+                    SimpleDateFormat cardSdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault());
+                    for (CardDto cardDto : cards) {
+                        Card newCard = new Card();
+                        newCard.setDeskId((int) localDeskId);
+                        newCard.setFront(cardDto.getFront());
+                        newCard.setBack(cardDto.getBack());
+                        newCard.setCreatedAt(cardSdf.format(new Date()));
+                        newCard.setLastModified(cardSdf.format(new Date()));
+                        newCard.setSyncStatus("pending_create");
+
+                        // Chèn thẻ vào database cục bộ, tự động tạo review
+                        long cardId = cardRepository.insertCard(newCard, false);
+                        if (cardId == -1) {
+                            Log.e("PublicCardFragment", "Failed to insert card for deskId: " + localDeskId);
+                        }
+                    }
+
+                    Toast.makeText(requireContext(), "Desk cloned successfully", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(requireContext(), "Failed to fetch cards for cloning", Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onFailure(Call<List<CardDto>> call, Throwable t) {
-                Log.e("PublicCardFragment", "Failed to fetch cards for cloned desk", t);
+                Toast.makeText(requireContext(), "Error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                Log.e("PublicCardFragment", "Failed to fetch cards for cloning", t);
             }
         });
     }
-
-
 }

@@ -228,12 +228,10 @@ public class AddCardActivity extends AppCompatActivity {
         edtCardContent.setHtml(css + initHtml);
 
         edtCardContent.setOnTextChangeListener(text -> {
-            Log.println(Log.INFO, "TextChange", text);
             if (text == null || text.isEmpty()) {
                 edtCardContent.setHtml(css + "");
             }
             updateHistory(text);
-
         });
 
         setupEditorControls();

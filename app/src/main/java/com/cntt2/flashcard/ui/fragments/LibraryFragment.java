@@ -56,7 +56,6 @@ public class LibraryFragment extends Fragment {
         // Set up RecyclerView
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         adapter = new PublicDeskAdapter(filteredDesks, desk -> {
-            // Navigate to CardsFragment to display the cards of the selected desk
             PublicCardFragment cardsFragment = PublicCardFragment.newInstance(desk.getId(), true);
             requireActivity().getSupportFragmentManager()
                     .beginTransaction()
