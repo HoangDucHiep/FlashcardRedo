@@ -1,8 +1,7 @@
 package com.cntt2.flashcard.ui.fragments;
 
 import android.Manifest;
-import android.app.AlarmManager;
-import android.app.PendingIntent;
+import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.app.TimePickerDialog;
 import android.content.Context;
@@ -11,12 +10,13 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.provider.Settings;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.CompoundButton;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -37,6 +37,7 @@ import com.cntt2.flashcard.auth.AuthManager;
 import com.cntt2.flashcard.data.local.DatabaseHelper;
 import com.cntt2.flashcard.sync.SyncManager;
 import com.cntt2.flashcard.ui.activities.LoginActivity;
+import com.cntt2.flashcard.utils.ConfirmDialog;
 import com.cntt2.flashcard.utils.NotificationWorker;
 
 import java.util.Calendar;
@@ -47,11 +48,13 @@ public class SettingsFragment extends Fragment {
 
     private TextView tvUserName;
     private TextView tvReminderTime;
+    private Switch switchReminder;
     private Button btnLogout;
     private SharedPreferences sharedPreferences;
     private static final String PREFS_NAME = "FlashcardPrefs";
     private static final String KEY_REMINDER_HOUR = "reminder_hour";
     private static final String KEY_REMINDER_MINUTE = "reminder_minute";
+    private static final String KEY_REMINDER_ENABLED = "reminder_enabled";
     private static final String TAG = "SettingsFragment";
     private int pendingHour = -1;
     private int pendingMinute = -1;
@@ -67,9 +70,10 @@ public class SettingsFragment extends Fragment {
                     }
                 } else {
                     Toast.makeText(requireContext(), "Notification permission denied. You won't receive study reminders.", Toast.LENGTH_LONG).show();
+                    switchReminder.setChecked(false);
+                    saveReminderEnabled(false);
                 }
             });
-
 
     @Nullable
     @Override
@@ -79,6 +83,7 @@ public class SettingsFragment extends Fragment {
         // Initialize views
         tvUserName = view.findViewById(R.id.tv_user_name);
         tvReminderTime = view.findViewById(R.id.tv_reminder_time);
+        switchReminder = view.findViewById(R.id.switch_reminder);
         btnLogout = view.findViewById(R.id.btn_logout);
 
         // Initialize SharedPreferences
@@ -89,15 +94,55 @@ public class SettingsFragment extends Fragment {
         String userName = authManager.getUsername();
         tvUserName.setText(userName);
 
-        // Load and display saved reminder time
-        int savedHour = sharedPreferences.getInt(KEY_REMINDER_HOUR, -1);
-        int savedMinute = sharedPreferences.getInt(KEY_REMINDER_MINUTE, -1);
-        if (savedHour != -1 && savedMinute != -1) {
-            tvReminderTime.setText(String.format("%02d:%02d", savedHour, savedMinute));
-        }
+        // Load and display saved reminder time and state
+        updateReminderUI();
 
         // Set up reminder time picker
-        tvReminderTime.setOnClickListener(v -> showTimePickerDialog());
+        tvReminderTime.setOnClickListener(v -> {
+            if (switchReminder.isChecked()) {
+                showTimePickerDialog();
+            } else {
+                Toast.makeText(requireContext(), "Please enable reminders first", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // Set up switch for enabling/disabling reminders
+        switchReminder.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked) {
+                // If enabling, prompt to set time if not set
+                if (!hasReminderTime()) {
+                    showTimePickerDialog();
+                } else {
+                    // Re-schedule existing reminder
+                    int savedHour = sharedPreferences.getInt(KEY_REMINDER_HOUR, -1);
+                    int savedMinute = sharedPreferences.getInt(KEY_REMINDER_MINUTE, -1);
+                    if (savedHour != -1 && savedMinute != -1) {
+                        pendingHour = savedHour;
+                        pendingMinute = savedMinute;
+                        checkAndRequestPermissions();
+                    }
+                }
+            } else {
+                // Show dialog to confirm clearing reminder time
+                if (hasReminderTime()) {
+                    ConfirmDialog.createConfirmDialog(
+                            requireContext(),
+                            "Turn off reminders",
+                            "Do you want to clear the reminder time?",
+                            v -> {
+                                cancelReminder();
+                            },
+                            v -> {
+                                cancelScheduledNotification();
+                                saveReminderEnabled(false);
+                            }
+                            ).show();
+                } else {
+                    cancelScheduledNotification();
+                    saveReminderEnabled(false);
+                }
+            }
+        });
 
         // Set up logout button
         btnLogout.setOnClickListener(v -> logout());
@@ -149,7 +194,6 @@ public class SettingsFragment extends Fragment {
         }
     }
 
-
     private void scheduleDailyNotification(int hour, int minute) {
         Calendar currentTime = Calendar.getInstance();
         Calendar targetTime = Calendar.getInstance();
@@ -171,7 +215,9 @@ public class SettingsFragment extends Fragment {
                 24,
                 TimeUnit.HOURS)
                 .setInitialDelay(initialDelay, TimeUnit.MILLISECONDS)
-                .setConstraints(new Constraints.Builder().setRequiredNetworkType(NetworkType.NOT_REQUIRED).build())
+                .setConstraints(new Constraints.Builder()
+                        .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
+                        .build())
                 .build();
 
         WorkManager.getInstance(requireContext()).enqueueUniquePeriodicWork(
@@ -182,6 +228,20 @@ public class SettingsFragment extends Fragment {
 
         Log.d(TAG, "Scheduled notification for " + String.format("%02d:%02d", hour, minute));
         Toast.makeText(requireContext(), "Reminder set for " + String.format("%02d:%02d", hour, minute), Toast.LENGTH_SHORT).show();
+        switchReminder.setChecked(true);
+        saveReminderEnabled(true);
+    }
+
+    private void cancelReminder() {
+        cancelScheduledNotification();
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.remove(KEY_REMINDER_HOUR);
+        editor.remove(KEY_REMINDER_MINUTE);
+        editor.apply();
+        tvReminderTime.setText("Not set");
+        switchReminder.setChecked(false);
+        saveReminderEnabled(false);
+        Toast.makeText(requireContext(), "Reminder cancelled", Toast.LENGTH_SHORT).show();
     }
 
     private void logout() {
@@ -288,7 +348,7 @@ public class SettingsFragment extends Fragment {
 
         authManager.logout();
 
-        // Clear SharedPreferences (optional, depending on your needs)
+        // Clear SharedPreferences
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.clear();
         editor.apply();
@@ -305,5 +365,30 @@ public class SettingsFragment extends Fragment {
     private void cancelScheduledNotification() {
         WorkManager.getInstance(requireContext()).cancelUniqueWork("daily_notification_work");
         Log.d(TAG, "Cancelled scheduled notification");
+    }
+
+    private void saveReminderEnabled(boolean enabled) {
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putBoolean(KEY_REMINDER_ENABLED, enabled);
+        editor.apply();
+    }
+
+    private boolean hasReminderTime() {
+        int savedHour = sharedPreferences.getInt(KEY_REMINDER_HOUR, -1);
+        int savedMinute = sharedPreferences.getInt(KEY_REMINDER_MINUTE, -1);
+        return savedHour != -1 && savedMinute != -1;
+    }
+
+    private void updateReminderUI() {
+        boolean isReminderEnabled = sharedPreferences.getBoolean(KEY_REMINDER_ENABLED, false);
+        int savedHour = sharedPreferences.getInt(KEY_REMINDER_HOUR, -1);
+        int savedMinute = sharedPreferences.getInt(KEY_REMINDER_MINUTE, -1);
+
+        switchReminder.setChecked(isReminderEnabled);
+        if (isReminderEnabled && savedHour != -1 && savedMinute != -1) {
+            tvReminderTime.setText(String.format("%02d:%02d", savedHour, savedMinute));
+        } else {
+            tvReminderTime.setText("Not set");
+        }
     }
 }

@@ -50,12 +50,12 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Mặt trước"
-                android:textColor="@android:color/white"
-                app:backgroundTint="@null"
                 android:background="@drawable/toggle_button_background"
                 android:padding="8dp"
-                android:textSize="14sp" />
+                android:text="Mặt trước"
+                android:textColor="@android:color/white"
+                android:textSize="14sp"
+                app:backgroundTint="@null" />
 
             <Button
                 android:id="@+id/btnBackSide"
