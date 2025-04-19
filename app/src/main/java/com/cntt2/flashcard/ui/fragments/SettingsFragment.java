@@ -1,5 +1,6 @@
 package com.cntt2.flashcard.ui.fragments;
 
+import android.Manifest;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.app.ProgressDialog;
@@ -7,29 +8,36 @@ import android.app.TimePickerDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.TimePicker;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.work.Constraints;
+import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.NetworkType;
+import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkManager;
 
-import com.cntt2.flashcard.App;
 import com.cntt2.flashcard.R;
 import com.cntt2.flashcard.auth.AuthManager;
 import com.cntt2.flashcard.data.local.DatabaseHelper;
-import com.cntt2.flashcard.ui.activities.LoginActivity;
-import com.cntt2.flashcard.utils.NotificationReceiver;
 import com.cntt2.flashcard.sync.SyncManager;
+import com.cntt2.flashcard.ui.activities.LoginActivity;
+import com.cntt2.flashcard.utils.NotificationWorker;
 
 import java.util.Calendar;
 import java.util.concurrent.CountDownLatch;
@@ -44,8 +52,7 @@ public class SettingsFragment extends Fragment {
     private static final String PREFS_NAME = "FlashcardPrefs";
     private static final String KEY_REMINDER_HOUR = "reminder_hour";
     private static final String KEY_REMINDER_MINUTE = "reminder_minute";
-
-
+    private static final String TAG = "SettingsFragment";
     private int pendingHour = -1;
     private int pendingMinute = -1;
 
@@ -53,33 +60,16 @@ public class SettingsFragment extends Fragment {
     private final ActivityResultLauncher<String> requestNotificationPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
                 if (isGranted) {
-                    // Permission granted, schedule the notification
                     if (pendingHour != -1 && pendingMinute != -1) {
                         scheduleDailyNotification(pendingHour, pendingMinute);
                         pendingHour = -1;
                         pendingMinute = -1;
                     }
                 } else {
-                    // Permission denied, inform the user
                     Toast.makeText(requireContext(), "Notification permission denied. You won't receive study reminders.", Toast.LENGTH_LONG).show();
                 }
             });
 
-    // Launcher for requesting exact alarm permission (Android 12+)
-    private final ActivityResultLauncher<Intent> requestExactAlarmLauncher =
-            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-                AlarmManager alarmManager = (AlarmManager) requireContext().getSystemService(Context.ALARM_SERVICE);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarmManager.canScheduleExactAlarms()) {
-                    // Permission granted, proceed with scheduling
-                    if (pendingHour != -1 && pendingMinute != -1) {
-                        scheduleDailyNotification(pendingHour, pendingMinute);
-                        pendingHour = -1;
-                        pendingMinute = -1;
-                    }
-                } else {
-                    Toast.makeText(requireContext(), "Exact alarm permission denied. Reminders may not work as expected.", Toast.LENGTH_LONG).show();
-                }
-            });
 
     @Nullable
     @Override
@@ -132,8 +122,10 @@ public class SettingsFragment extends Fragment {
                     // Update UI
                     tvReminderTime.setText(String.format("%02d:%02d", hourOfDay, minuteOfDay));
 
-                    // Schedule the daily notification
-                    scheduleDailyNotification(hourOfDay, minuteOfDay);
+                    // Store pending time and check permissions
+                    pendingHour = hourOfDay;
+                    pendingMinute = minuteOfDay;
+                    checkAndRequestPermissions();
                 },
                 hour,
                 minute,
@@ -142,35 +134,54 @@ public class SettingsFragment extends Fragment {
         timePickerDialog.show();
     }
 
+    private void checkAndRequestPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
+                return;
+            }
+        }
+        if (pendingHour != -1 && pendingMinute != -1) {
+            scheduleDailyNotification(pendingHour, pendingMinute);
+            pendingHour = -1;
+            pendingMinute = -1;
+        }
+    }
+
+
     private void scheduleDailyNotification(int hour, int minute) {
-        AlarmManager alarmManager = (AlarmManager) requireContext().getSystemService(Context.ALARM_SERVICE);
-        Intent intent = new Intent(requireContext(), NotificationReceiver.class);
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                requireContext(),
-                0,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
+        Calendar currentTime = Calendar.getInstance();
+        Calendar targetTime = Calendar.getInstance();
 
-        // Set the time for the notification
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTimeInMillis(System.currentTimeMillis());
-        calendar.set(Calendar.HOUR_OF_DAY, hour);
-        calendar.set(Calendar.MINUTE, minute);
-        calendar.set(Calendar.SECOND, 0);
+        targetTime.setTimeInMillis(System.currentTimeMillis());
+        targetTime.set(Calendar.HOUR_OF_DAY, hour);
+        targetTime.set(Calendar.MINUTE, minute);
+        targetTime.set(Calendar.SECOND, 0);
+        targetTime.set(Calendar.MILLISECOND, 0);
 
-        // If the time is in the past, schedule for the next day
-        if (calendar.getTimeInMillis() <= System.currentTimeMillis()) {
-            calendar.add(Calendar.DAY_OF_YEAR, 1);
+        if (targetTime.getTimeInMillis() <= currentTime.getTimeInMillis()) {
+            targetTime.add(Calendar.DAY_OF_MONTH, 1);
         }
 
-        // Schedule the alarm to repeat daily
-        alarmManager.setRepeating(
-                AlarmManager.RTC_WAKEUP,
-                calendar.getTimeInMillis(),
-                AlarmManager.INTERVAL_DAY,
-                pendingIntent
+        long initialDelay = targetTime.getTimeInMillis() - currentTime.getTimeInMillis();
+
+        PeriodicWorkRequest notificationRequest = new PeriodicWorkRequest.Builder(
+                NotificationWorker.class,
+                24,
+                TimeUnit.HOURS)
+                .setInitialDelay(initialDelay, TimeUnit.MILLISECONDS)
+                .setConstraints(new Constraints.Builder().setRequiredNetworkType(NetworkType.NOT_REQUIRED).build())
+                .build();
+
+        WorkManager.getInstance(requireContext()).enqueueUniquePeriodicWork(
+                "daily_notification_work",
+                ExistingPeriodicWorkPolicy.REPLACE,
+                notificationRequest
         );
+
+        Log.d(TAG, "Scheduled notification for " + String.format("%02d:%02d", hour, minute));
+        Toast.makeText(requireContext(), "Reminder set for " + String.format("%02d:%02d", hour, minute), Toast.LENGTH_SHORT).show();
     }
 
     private void logout() {
@@ -292,14 +303,7 @@ public class SettingsFragment extends Fragment {
     }
 
     private void cancelScheduledNotification() {
-        AlarmManager alarmManager = (AlarmManager) requireContext().getSystemService(Context.ALARM_SERVICE);
-        Intent intent = new Intent(requireContext(), NotificationReceiver.class);
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                requireContext(),
-                0,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-        alarmManager.cancel(pendingIntent);
+        WorkManager.getInstance(requireContext()).cancelUniqueWork("daily_notification_work");
+        Log.d(TAG, "Cancelled scheduled notification");
     }
 }
