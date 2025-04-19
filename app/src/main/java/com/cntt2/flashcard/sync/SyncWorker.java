@@ -8,6 +8,9 @@ import androidx.work.Data;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 public class SyncWorker extends Worker {
     private static final String TAG = "SyncWorker";
     public static final String KEY_SYNC_RESULT = "sync_result";
@@ -15,6 +18,7 @@ public class SyncWorker extends Worker {
 
     private boolean isSuccessful = true;
     private String errorMessage = null;
+    private CountDownLatch latch;
 
     public SyncWorker(@NonNull Context context, @NonNull WorkerParameters params) {
         super(context, params);
@@ -24,6 +28,7 @@ public class SyncWorker extends Worker {
     @Override
     public Result doWork() {
         SyncManager syncManager = new SyncManager(getApplicationContext());
+        latch = new CountDownLatch(1);
 
         // Reset state
         isSuccessful = true;
@@ -54,7 +59,8 @@ public class SyncWorker extends Worker {
                                             @Override
                                             public void onSuccess() {
                                                 Log.d(TAG, "Review sync completed successfully");
-                                                // All sync steps completed successfully
+                                                isSuccessful = true;
+                                                latch.countDown();
                                             }
 
                                             @Override
@@ -62,6 +68,7 @@ public class SyncWorker extends Worker {
                                                 Log.e(TAG, "Review sync failed: " + error);
                                                 isSuccessful = false;
                                                 errorMessage = "Review sync failed: " + error;
+                                                latch.countDown();
                                             }
                                         });
                                     }
@@ -71,6 +78,7 @@ public class SyncWorker extends Worker {
                                         Log.e(TAG, "Card sync failed: " + error);
                                         isSuccessful = false;
                                         errorMessage = "Card sync failed: " + error;
+                                        latch.countDown();
                                     }
                                 });
                             }
@@ -80,6 +88,7 @@ public class SyncWorker extends Worker {
                                 Log.e(TAG, "Session sync failed: " + error);
                                 isSuccessful = false;
                                 errorMessage = "Session sync failed: " + error;
+                                latch.countDown();
                             }
                         });
                     }
@@ -89,6 +98,7 @@ public class SyncWorker extends Worker {
                         Log.e(TAG, "Desk sync failed: " + error);
                         isSuccessful = false;
                         errorMessage = "Desk sync failed: " + error;
+                        latch.countDown();
                     }
                 });
             }
@@ -98,18 +108,17 @@ public class SyncWorker extends Worker {
                 Log.e(TAG, "Folder sync failed: " + error);
                 isSuccessful = false;
                 errorMessage = "Folder sync failed: " + error;
+                latch.countDown();
             }
         });
 
-        // Since Retrofit calls are asynchronous, we need to wait for them to complete.
-        // However, WorkManager runs on a background thread, and we can't block here.
-        // Instead, we'll rely on WorkManager's result mechanism to communicate the outcome.
-        // For simplicity, we'll assume the sync is synchronous for now (not ideal, see notes below).
-        // In a real app, you should use WorkManager's LiveData or a more robust mechanism.
-
-        // Simulate waiting for async tasks (not ideal, see recommendations below)
         try {
-            Thread.sleep(5000); // Wait for 5 seconds to allow async tasks to complete
+            boolean completed = latch.await(30, TimeUnit.SECONDS);
+            if (!completed) {
+                Log.e(TAG, "Sync operation timed out");
+                isSuccessful = false;
+                errorMessage = "Sync operation timed out";
+            }
         } catch (InterruptedException e) {
             Log.e(TAG, "Interrupted while waiting for sync: " + e.getMessage());
             isSuccessful = false;
@@ -120,7 +129,7 @@ public class SyncWorker extends Worker {
             return Result.success();
         } else {
             Data outputData = new Data.Builder()
-                    .putBoolean(KEY_SYNC_RESULT, false)
+                    .putString(KEY_SYNC_RESULT, "Sync failed")
                     .putString(KEY_ERROR_MESSAGE, errorMessage)
                     .build();
             return Result.failure(outputData);
