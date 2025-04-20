@@ -25,13 +25,7 @@ public class ImageManager {
         while (matcher.find()) {
             String srcPath = matcher.group(1);
 
-            // process path file://
-            if (srcPath.startsWith("file://")) {
-                srcPath = srcPath.substring(7); // Remove "file://"
-            } else if (srcPath.startsWith("content://")) {
-                // Convert content URI to file path
-                srcPath = getRealPathFromContentUri(Uri.parse(srcPath), context);
-            }
+            srcPath = getRealPathFromContentUri(Uri.parse(srcPath), context);
 
             if (srcPath != null) {
                 imagePaths.add(srcPath);

@@ -9,7 +9,6 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -38,17 +37,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import android.Manifest;
-import android.content.pm.PackageManager;
-import android.os.Build;
-import androidx.annotation.NonNull;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
 
 import jp.wasabeef.richeditor.RichEditor;
 
@@ -68,10 +57,16 @@ public class AddCardActivity extends AppCompatActivity {
     private String frontText = "";
     private String backText = "";
 
-    private int historyIndex;
-    private List<String> htmlHistory;
-    private List<Set<String>> imageHistory; // Danh sách các tập hợp đường dẫn ảnh
+    // Separate history for front
+    private int frontHistoryIndex = -1;
+    private List<String> frontHtmlHistory = new ArrayList<>();
+
+    // Separate history for back
+    private int backHistoryIndex = -1;
+    private List<String> backHtmlHistory = new ArrayList<>();
+
     private Set<String> initialImages; // Lưu các ảnh ban đầu
+    private Set<String> sessionImages; // Lưu tất cả ảnh được thêm trong phiên
     private Uri photoUri;
     private File imagesDir;
 
@@ -136,26 +131,20 @@ public class AddCardActivity extends AppCompatActivity {
                 }
             });
 
-    // ActivityResultLauncher để chụp ảnh /././. asdasd
     private final ActivityResultLauncher<Uri> takePictureLauncher = registerForActivityResult(
             new ActivityResultContracts.TakePicture(),
             result -> {
                 if (result) {
                     try {
-                        // Tạo URI content:// từ FileProvider
                         Uri contentUri = photoUri;
-
                         Log.d("ImageHandling", "Photo URI: " + contentUri);
-
-                        // Chèn ảnh vào editor
+                        // Lưu đường dẫn file vào sessionImages
+                        File photoFile = new File(imagesDir, contentUri.getPath().replace("/my_images/", ""));
+                        sessionImages.add(photoFile.getAbsolutePath());
                         edtCardContent.insertImage(contentUri.toString(), "Photo");
-
-                        // Cập nhật lịch sử
                         String html = edtCardContent.getHtml();
                         updateHistory(html);
-
                         Log.d("ImageHandling", "Successfully added photo: " + contentUri);
-
                     } catch (Exception e) {
                         Log.e("AddCardActivity", "Error processing camera image: " + e.getMessage(), e);
                         Toast.makeText(AddCardActivity.this, "Failed to process photo", Toast.LENGTH_SHORT).show();
@@ -164,8 +153,7 @@ public class AddCardActivity extends AppCompatActivity {
                     Log.d("ImageHandling", "User cancelled taking photo");
                 }
             }
-        );
-
+    );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -174,18 +162,14 @@ public class AddCardActivity extends AppCompatActivity {
 
         checkPermissions();
 
-        // Initialize UI components
         edtCardContent = findViewById(R.id.edtCardContent);
         btnFront = findViewById(R.id.btnFront);
         btnBackSide = findViewById(R.id.btnBackSide);
         btnBack = findViewById(R.id.btnBack);
         btnSave = findViewById(R.id.btnSave);
 
-        historyIndex = -1;
-        imageHistory = new ArrayList<>();
-        htmlHistory = new ArrayList<>();
-        updateHistory(edtCardContent.getHtml());
         initialImages = new HashSet<>();
+        sessionImages = new HashSet<>();
 
         imagesDir = new File(getFilesDir(), "images");
         if (!imagesDir.exists()) {
@@ -196,8 +180,6 @@ public class AddCardActivity extends AppCompatActivity {
         photoUri = FileProvider.getUriForFile(this,
                 "com.cntt2.flashcard.fileprovider", photoFile);
 
-
-        // Xử lý Intent
         Intent intent = getIntent();
         isEditMode = intent.getBooleanExtra("isEditMode", false);
         if (isEditMode) {
@@ -208,18 +190,19 @@ public class AddCardActivity extends AppCompatActivity {
                     frontText = existingCard.getFront();
                     backText = existingCard.getBack();
                     deskId = existingCard.getDeskId();
+                    updateFrontHistory(frontText);
+                    updateBackHistory(backText);
                     edtCardContent.setHtml(frontText);
                     initialImages = ImageManager.extractImagePathsFromHtml(frontText + backText, this);
                 }
             }
         } else {
             deskId = intent.getIntExtra("deskId", -1);
+            updateFrontHistory(""); // Khởi tạo lịch sử cho front
         }
-
 
         updateToggleState();
 
-        // set up rich editor
         edtCardContent.setPlaceholder("Type in front content");
         edtCardContent.setEditorFontColor(Color.WHITE);
         edtCardContent.setPadding(10, 10, 10, 10);
@@ -236,10 +219,10 @@ public class AddCardActivity extends AppCompatActivity {
 
         setupEditorControls();
 
-        // Switch to front side
         btnFront.setOnClickListener(v -> {
             if (!isFrontSide) {
                 backText = edtCardContent.getHtml();
+                updateBackHistory(backText);
                 isFrontSide = true;
                 edtCardContent.setHtml(frontText);
                 edtCardContent.setPlaceholder("Type in front content");
@@ -247,10 +230,10 @@ public class AddCardActivity extends AppCompatActivity {
             }
         });
 
-        // Switch to back side
         btnBackSide.setOnClickListener(v -> {
             if (isFrontSide) {
                 frontText = edtCardContent.getHtml();
+                updateFrontHistory(frontText);
                 isFrontSide = false;
                 edtCardContent.setHtml(backText);
                 edtCardContent.setPlaceholder("Type in back content");
@@ -258,28 +241,40 @@ public class AddCardActivity extends AppCompatActivity {
             }
         });
 
-        // Back button to return to MainActivity
         btnBack.setOnClickListener(v -> finish());
-        // Save button to create a new card
         btnSave.setOnClickListener(v -> saveCard());
-        
     }
-    
-    
+
     private void setupEditorControls() {
         findViewById(R.id.action_undo).setOnClickListener(v -> {
-            if (historyIndex > 0) {
-                historyIndex--;
-                String previousHtml = htmlHistory.get(historyIndex);
-                edtCardContent.setHtml(previousHtml);
+            if (isFrontSide) {
+                if (frontHistoryIndex > 0) {
+                    frontHistoryIndex--;
+                    String previousHtml = frontHtmlHistory.get(frontHistoryIndex);
+                    edtCardContent.setHtml(previousHtml);
+                }
+            } else {
+                if (backHistoryIndex > 0) {
+                    backHistoryIndex--;
+                    String previousHtml = backHtmlHistory.get(backHistoryIndex);
+                    edtCardContent.setHtml(previousHtml);
+                }
             }
         });
 
         findViewById(R.id.action_redo).setOnClickListener(v -> {
-            if (historyIndex < htmlHistory.size() - 1) {
-                historyIndex++;
-                String nextHtml = htmlHistory.get(historyIndex);
-                edtCardContent.setHtml(nextHtml);
+            if (isFrontSide) {
+                if (frontHistoryIndex < frontHtmlHistory.size() - 1) {
+                    frontHistoryIndex++;
+                    String nextHtml = frontHtmlHistory.get(frontHistoryIndex);
+                    edtCardContent.setHtml(nextHtml);
+                }
+            } else {
+                if (backHistoryIndex < backHtmlHistory.size() - 1) {
+                    backHistoryIndex++;
+                    String nextHtml = backHtmlHistory.get(backHistoryIndex);
+                    edtCardContent.setHtml(nextHtml);
+                }
             }
         });
 
@@ -326,7 +321,6 @@ public class AddCardActivity extends AppCompatActivity {
         findViewById(R.id.action_insert_link).setOnClickListener(v -> edtCardContent.insertLink("https://github.com/wasabeef", "wasabeef"));
         findViewById(R.id.action_insert_checkbox).setOnClickListener(v -> edtCardContent.insertTodo());
     }
-    
 
     private void updateToggleState() {
         if (isFrontSide) {
@@ -338,48 +332,33 @@ public class AddCardActivity extends AppCompatActivity {
         }
     }
 
-
     private void showImagePickerDialog() {
         String[] options = {"Choose from Gallery", "Take a Photo"};
         new AlertDialog.Builder(this)
                 .setTitle("Insert Image")
                 .setItems(options, (dialog, which) -> {
                     if (which == 0) {
-                        // Chọn ảnh từ thư viện
                         pickImageLauncher.launch("image/*");
                     } else {
-                        // Tạo file ảnh với tên chuẩn ngay từ đầu
                         String fileName = "img_" + System.currentTimeMillis() + ".jpg";
-
-                        // Đảm bảo thư mục images tồn tại
                         File imagesDir = new File(getFilesDir(), "images");
                         if (!imagesDir.exists()) {
                             imagesDir.mkdirs();
                         }
-
-                        // Tạo file trong thư mục images
                         File photoFile = new File(imagesDir, fileName);
-
-                        // Tạo photoUri từ file này
                         photoUri = FileProvider.getUriForFile(this,
                                 "com.cntt2.flashcard.fileprovider", photoFile);
-
-                        // Chụp ảnh và lưu trực tiếp vào file đã tạo
                         takePictureLauncher.launch(photoUri);
                     }
                 })
                 .show();
     }
 
-
     private void handleImageSelection(Uri uri) {
         new Thread(() -> {
             try {
-                // Tạo tên file ảnh
                 String fileName = "img_" + System.currentTimeMillis() + ".jpg";
                 File destFile = new File(imagesDir, fileName);
-
-                // Sao chép ảnh từ URI vào thư mục ứng dụng
                 InputStream in = getContentResolver().openInputStream(uri);
                 FileOutputStream out = new FileOutputStream(destFile);
                 byte[] buffer = new byte[1024];
@@ -389,22 +368,19 @@ public class AddCardActivity extends AppCompatActivity {
                 }
                 in.close();
                 out.close();
-
-                // Tạo URI content:// từ FileProvider
                 Uri contentUri = FileProvider.getUriForFile(
                         this,
                         "com.cntt2.flashcard.fileprovider",
                         destFile
                 );
-
-                // Chèn ảnh vào editor trên main thread
                 runOnUiThread(() -> {
+                    // Lưu đường dẫn file vào sessionImages
+                    sessionImages.add(destFile.getAbsolutePath());
                     edtCardContent.insertImage(contentUri.toString(), "Gallery Image");
                     String html = edtCardContent.getHtml();
                     updateHistory(html);
                     Log.d("ImageHandling", "Successfully added gallery image: " + contentUri);
                 });
-
             } catch (IOException e) {
                 Log.e("AddCardActivity", "Error handling image: " + e.getMessage());
                 runOnUiThread(() -> Toast.makeText(this, "Failed to process image", Toast.LENGTH_SHORT).show());
@@ -413,61 +389,65 @@ public class AddCardActivity extends AppCompatActivity {
     }
 
     private void updateHistory(String html) {
-        // Cắt bỏ lịch sử sau vị trí hiện tại
-        while (htmlHistory.size() > historyIndex + 1) {
-            htmlHistory.remove(htmlHistory.size() - 1);
-            if (imageHistory.size() > historyIndex + 1) {
-                imageHistory.remove(imageHistory.size() - 1);
-            }
+        if (isFrontSide) {
+            updateFrontHistory(html);
+        } else {
+            updateBackHistory(html);
         }
-
-        htmlHistory.add(html);
-
-        Set<String> currentImages = ImageManager.extractImagePathsFromHtml(html, this);
-        imageHistory.add(currentImages);
-
-        historyIndex++;
     }
 
+    private void updateFrontHistory(String html) {
+        while (frontHtmlHistory.size() > frontHistoryIndex + 1) {
+            frontHtmlHistory.remove(frontHtmlHistory.size() - 1);
+        }
+        frontHtmlHistory.add(html);
+        frontHistoryIndex++;
+    }
+
+    private void updateBackHistory(String html) {
+        while (backHtmlHistory.size() > backHistoryIndex + 1) {
+            backHtmlHistory.remove(backHtmlHistory.size() - 1);
+        }
+        backHtmlHistory.add(html);
+        backHistoryIndex++;
+    }
 
     private void manageImageFiles(String combinedHtml) {
         try {
-            // Lấy tất cả các đường dẫn ảnh hiện đang được sử dụng trong HTML
+            // Lấy danh sách ảnh đang được sử dụng trong HTML hiện tại
             Set<String> usedImages = ImageManager.extractImagePathsFromHtml(combinedHtml, this);
-            Log.d("ImageCleanup", "Found " + usedImages.size() + " images in use");
+            Log.d("ImageCleanup", "Used images: " + usedImages);
 
-            // Tìm tất cả ảnh đã thêm mới trong phiên làm việc này
-            Set<String> allImagesAddedInSession = new HashSet<>();
-
-            // Kết hợp tất cả ảnh từ mọi bước trong lịch sử
-            for (Set<String> imagesAtStep : imageHistory) {
-                allImagesAddedInSession.addAll(imagesAtStep);
-            }
+            // Lấy danh sách tất cả ảnh đã thêm trong phiên từ sessionImages
+            Set<String> allImagesAddedInSession = new HashSet<>(sessionImages);
+            Log.d("ImageCleanup", "All images added in session: " + allImagesAddedInSession);
 
             // Loại bỏ các ảnh đã có từ ban đầu
             allImagesAddedInSession.removeAll(initialImages);
+            Log.d("ImageCleanup", "Images added in session after removing initial: " + allImagesAddedInSession);
+
+            // Xác định các ảnh không còn được sử dụng
+            Set<String> unusedImages = new HashSet<>(allImagesAddedInSession);
+            unusedImages.removeAll(usedImages);
+            Log.d("ImageCleanup", "Unused images to delete: " + unusedImages);
 
             // Xóa các ảnh không còn được sử dụng
-            Set<String> unusedImages = allImagesAddedInSession.stream().filter(
-                    imagePath -> !usedImages.contains(imagePath)
-            ).collect(Collectors.toSet());
-
             ImageManager.deleteImageFiles(unusedImages, this);
-
+            Log.d("ImageCleanup", "Deleted " + unusedImages.size() + " unused images");
         } catch (Exception e) {
             Log.e("ImageCleanup", "Error cleaning up images: " + e.getMessage(), e);
         }
     }
 
-
     private void saveCard() {
         if (isFrontSide) {
             frontText = edtCardContent.getHtml() != null ? edtCardContent.getHtml() : "";
+            updateFrontHistory(frontText);
         } else {
             backText = edtCardContent.getHtml() != null ? edtCardContent.getHtml() : "";
+            updateBackHistory(backText);
         }
 
-        // Kiểm tra nếu cả hai mặt đều trống
         if (frontText.isEmpty() && backText.isEmpty()) {
             Toast.makeText(this, "Card content cannot be empty", Toast.LENGTH_SHORT).show();
             return;
@@ -476,17 +456,15 @@ public class AddCardActivity extends AppCompatActivity {
         String currentDate = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault()).format(new Date());
 
         if (isEditMode) {
-            // Chế độ chỉnh sửa
             if (existingCard != null) {
                 existingCard.setFront(frontText);
                 existingCard.setBack(backText);
-                existingCard.setCreatedAt(currentDate); // Cập nhật thời gian (tùy chọn)
+                existingCard.setCreatedAt(currentDate);
                 cardRepository.updateCard(existingCard, false);
                 manageImageFiles(frontText + backText);
                 Toast.makeText(this, "Card updated successfully", Toast.LENGTH_SHORT).show();
             }
         } else {
-            // Chế độ thêm mới
             Card newCard = new Card(frontText, backText, deskId, currentDate);
             long insertedId = cardRepository.insertCard(newCard);
             if (insertedId != -1) {
@@ -501,6 +479,4 @@ public class AddCardActivity extends AppCompatActivity {
         setResult(RESULT_OK);
         finish();
     }
-
-
 }
