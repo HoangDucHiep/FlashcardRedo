@@ -25,7 +25,13 @@ public class ImageManager {
         while (matcher.find()) {
             String srcPath = matcher.group(1);
 
-            srcPath = getRealPathFromContentUri(Uri.parse(srcPath), context);
+            // process path file://
+            if (srcPath.startsWith("file://")) {
+                srcPath = srcPath.substring(7); // Remove "file://"
+            } else if (srcPath.startsWith("content://")) {
+                // Convert content URI to file path
+                srcPath = getRealPathFromContentUri(Uri.parse(srcPath), context);
+            }
 
             if (srcPath != null) {
                 imagePaths.add(srcPath);
@@ -36,7 +42,7 @@ public class ImageManager {
         return imagePaths;
     }
 
-    private static String getRealPathFromContentUri(Uri contentUri, Context context) {
+    public static String getRealPathFromContentUri(Uri contentUri, Context context) {
         try {
             if ("com.cntt2.flashcard.fileprovider".equals(contentUri.getAuthority())) {
                 File file = new File(context.getFilesDir(), contentUri.getPath().replace("/my_images/", "images/"));

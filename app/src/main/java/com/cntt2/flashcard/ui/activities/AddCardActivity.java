@@ -138,9 +138,10 @@ public class AddCardActivity extends AppCompatActivity {
                     try {
                         Uri contentUri = photoUri;
                         Log.d("ImageHandling", "Photo URI: " + contentUri);
-                        // Lưu đường dẫn file vào sessionImages
-                        File photoFile = new File(imagesDir, contentUri.getPath().replace("/my_images/", ""));
-                        sessionImages.add(photoFile.getAbsolutePath());
+                        // Lấy tên file từ photoUri đã tạo trước đó
+                        String fileName = contentUri.getLastPathSegment(); // ví dụ: img_xxx.jpg
+                        File photoFile = new File(imagesDir, fileName);
+                        sessionImages.add(photoFile.getAbsolutePath()); // Đường dẫn thực: /data/user/0/.../images/img_xxx.jpg
                         edtCardContent.insertImage(contentUri.toString(), "Photo");
                         String html = edtCardContent.getHtml();
                         updateHistory(html);
