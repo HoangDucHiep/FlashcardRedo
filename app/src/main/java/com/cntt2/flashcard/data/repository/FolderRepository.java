@@ -123,4 +123,26 @@ public class FolderRepository {
             }
         });
     }
+
+    public void getUserFolders(Callback<List<GetFolderDto>> callback) {
+        Call<List<GetFolderDto>> call = apiService.getUserFolders();
+        call.enqueue(new Callback<List<GetFolderDto>>() {
+            @Override
+            public void onResponse(Call<List<GetFolderDto>> call, Response<List<GetFolderDto>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "Fetched folders: " + response.body().size());
+                    callback.onResponse(call, response);
+                } else {
+                    Log.e(TAG, "Failed to fetch folders: " + response.message());
+                    callback.onFailure(call, new Throwable("Failed to fetch folders: " + response.message()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<GetFolderDto>> call, Throwable t) {
+                Log.e(TAG, "Network error fetching folders: " + t.getMessage());
+                callback.onFailure(call, t);
+            }
+        });
+    }
 }

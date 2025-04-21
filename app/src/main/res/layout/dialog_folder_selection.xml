@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="#13112b"> <!-- Dark background matching the spinner -->
+
+    <Spinner
+        android:id="@+id/folderSpinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@android:drawable/btn_dropdown"
+        android:backgroundTint="#1c1941"
+        android:popupBackground="#1c1941"
+        android:spinnerMode="dropdown" /> <!-- Ensure dropdown background is also dark -->
+
+</LinearLayout>

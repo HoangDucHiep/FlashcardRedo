@@ -7,6 +7,7 @@ import com.cntt2.flashcard.App;
 import com.cntt2.flashcard.data.local.dao.DeskDao;
 import com.cntt2.flashcard.data.remote.ApiService;
 import com.cntt2.flashcard.data.remote.dto.DeskDto;
+import com.cntt2.flashcard.data.remote.dto.PublicDeskDto;
 import com.cntt2.flashcard.model.Card;
 import com.cntt2.flashcard.model.Desk;
 import com.cntt2.flashcard.model.IdMapping;
@@ -116,6 +117,55 @@ public class DeskRepository {
             @Override
             public void onFailure(Call<List<DeskDto>> call, Throwable t) {
                 Log.e(TAG, "Network error fetching desks: " + t.getMessage());
+                callback.onFailure(call, t);
+            }
+        });
+    }
+
+    public void getPublicDesks(Callback<List<PublicDeskDto>> callback) {
+        Call<List<PublicDeskDto>> call = apiService.getPublicDesks();
+        call.enqueue(new Callback<List<PublicDeskDto>>() {
+            @Override
+            public void onResponse(Call<List<PublicDeskDto>> call, Response<List<PublicDeskDto>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "Fetched public desks: " + response.body().size());
+                    callback.onResponse(call, response);
+                } else {
+                    Log.e(TAG, "Failed to fetch public desks: " + response.message());
+                    callback.onFailure(call, new Throwable("Failed to fetch public desks: " + response.message()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<PublicDeskDto>> call, Throwable t) {
+                Log.e(TAG, "Network error fetching public desks: " + t.getMessage());
+                callback.onFailure(call, t);
+            }
+        });
+    }
+
+    public void cloneDesk(String deskId, String targetFolderId, Callback<DeskDto> callback) {
+        if (targetFolderId == null || targetFolderId.isEmpty()) {
+            callback.onFailure(null, new IllegalArgumentException("Target folder ID is required"));
+            return;
+        }
+
+        Call<DeskDto> call = apiService.cloneDesk(deskId, targetFolderId);
+        call.enqueue(new Callback<DeskDto>() {
+            @Override
+            public void onResponse(Call<DeskDto> call, Response<DeskDto> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "Desk cloned - ID: " + response.body().getId());
+                    callback.onResponse(call, response);
+                } else {
+                    Log.e(TAG, "Failed to clone desk: " + response.message());
+                    callback.onFailure(call, new Throwable("Failed to clone desk: " + response.message()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<DeskDto> call, Throwable t) {
+                Log.e(TAG, "Network error cloning desk: " + t.getMessage());
                 callback.onFailure(call, t);
             }
         });

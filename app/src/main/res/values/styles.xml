@@ -1,0 +1,21 @@
+<resources>
+    <!-- Base application theme (optional, if not already defined) -->
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight.DarkActionBar">
+        <!-- Customize your theme here -->
+    </style>
+
+    <!-- Custom theme for the AlertDialog -->
+    <style name="DarkDialogTheme" parent="Theme.AppCompat.Dialog.Alert">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:background">#13112b</item> <!-- Dark background color -->
+        <item name="android:textColorPrimary">#FFFFFFFF</item> <!-- White text for title -->
+        <item name="android:textColorSecondary">#FFB0BEC5</item> <!-- Light gray for secondary text -->
+        <item name="buttonBarPositiveButtonStyle">@style/DarkDialogButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/DarkDialogButton</item>
+    </style>
+
+    <!-- Style for dialog buttons -->
+    <style name="DarkDialogButton" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
+        <item name="android:textColor">#FFBB86FC</item> <!-- Purple text for buttons (matches Clone button) -->
+    </style>
+</resources>

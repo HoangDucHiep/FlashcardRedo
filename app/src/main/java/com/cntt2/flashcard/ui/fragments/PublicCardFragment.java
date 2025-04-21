@@ -10,8 +10,8 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ProgressBar;
 import android.widget.Spinner;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -23,21 +23,15 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.cntt2.flashcard.App;
 import com.cntt2.flashcard.R;
-import com.cntt2.flashcard.data.remote.ApiClient;
-import com.cntt2.flashcard.data.remote.ApiService;
 import com.cntt2.flashcard.data.remote.dto.CardDto;
 import com.cntt2.flashcard.data.remote.dto.DeskDto;
+import com.cntt2.flashcard.data.remote.dto.GetFolderDto;
 import com.cntt2.flashcard.data.repository.CardRepository;
 import com.cntt2.flashcard.data.repository.DeskRepository;
 import com.cntt2.flashcard.data.repository.FolderRepository;
-import com.cntt2.flashcard.model.Card;
-import com.cntt2.flashcard.model.Desk;
-import com.cntt2.flashcard.model.Folder;
 import com.cntt2.flashcard.ui.adapters.PublicCardAdapter;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -54,8 +48,8 @@ public class PublicCardFragment extends Fragment {
     private boolean isPublic;
     private RecyclerView recyclerView;
     private EditText edtSearch;
-    private TextView txtCount;
     private Button btnAction;
+    private ProgressBar progressBar;
     private PublicCardAdapter adapter;
     private List<CardDto> cards = new ArrayList<>();
     private List<CardDto> filteredCards = new ArrayList<>();
@@ -97,6 +91,7 @@ public class PublicCardFragment extends Fragment {
         recyclerView = view.findViewById(R.id.recyclerView);
         edtSearch = view.findViewById(R.id.edtSearch);
         btnAction = view.findViewById(R.id.btnStartLearnSession);
+        progressBar = view.findViewById(R.id.progressBar);
 
         // Hide To Learn and To Review sections
         view.findViewById(R.id.constraintLayout).setVisibility(View.GONE);
@@ -113,7 +108,7 @@ public class PublicCardFragment extends Fragment {
         if (isPublic) {
             fetchPublicCards();
         } else {
-            fetchLocalCards();
+            Toast.makeText(requireContext(), "Local cards not supported in this context", Toast.LENGTH_SHORT).show();
         }
 
         // Set up search functionality
@@ -134,11 +129,11 @@ public class PublicCardFragment extends Fragment {
     }
 
     private void fetchPublicCards() {
-        ApiService apiService = ApiClient.getApiService();
-        Call<List<CardDto>> call = apiService.getCardsByDeskId(deskId);
-        call.enqueue(new Callback<List<CardDto>>() {
+        progressBar.setVisibility(View.VISIBLE);
+        cardRepository.getCardsByDeskId(deskId, new Callback<List<CardDto>>() {
             @Override
             public void onResponse(Call<List<CardDto>> call, Response<List<CardDto>> response) {
+                progressBar.setVisibility(View.GONE);
                 if (response.isSuccessful() && response.body() != null) {
                     cards.clear();
                     cards.addAll(response.body());
@@ -147,19 +142,121 @@ public class PublicCardFragment extends Fragment {
                     adapter.notifyDataSetChanged();
                 } else {
                     Toast.makeText(requireContext(), "Failed to load cards", Toast.LENGTH_SHORT).show();
+                    Log.e("PublicCardFragment", "Failed to fetch cards: " + response.message());
                 }
             }
 
             @Override
             public void onFailure(Call<List<CardDto>> call, Throwable t) {
-                Toast.makeText(requireContext(), "Error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
-                Log.e("PublicCardFragment", "Failed to fetch cards", t);
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(requireContext(), "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                Log.e("PublicCardFragment", "Network error fetching cards", t);
             }
         });
     }
 
-    private void fetchLocalCards() {
-        Toast.makeText(requireContext(), "Local cards not supported in this context", Toast.LENGTH_SHORT).show();
+    private void cloneDesk() {
+        if (deskId == null) {
+            Toast.makeText(requireContext(), "Invalid desk ID", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        showFolderSelectionDialog();
+    }
+
+    private void showFolderSelectionDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext(), R.style.DarkDialogTheme);
+        builder.setTitle("Select Folder");
+
+        // Create spinner view
+        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_folder_selection, null);
+        Spinner spinner = dialogView.findViewById(R.id.folderSpinner);
+        builder.setView(dialogView);
+
+        // Fetch user folders
+        progressBar.setVisibility(View.VISIBLE);
+        folderRepository.getUserFolders(new Callback<List<GetFolderDto>>() {
+            @Override
+            public void onResponse(Call<List<GetFolderDto>> call, Response<List<GetFolderDto>> response) {
+                progressBar.setVisibility(View.GONE);
+                if (response.isSuccessful() && response.body() != null) {
+                    List<GetFolderDto> folders = response.body();
+                    if (folders.isEmpty()) {
+                        Toast.makeText(requireContext(), "No folders available. Please create a folder first.", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+
+                    List<String> folderNames = new ArrayList<>();
+                    List<String> folderIds = new ArrayList<>();
+                    for (GetFolderDto folder : folders) {
+                        folderNames.add(folder.getName());
+                        folderIds.add(folder.getId());
+                    }
+
+                    ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                            requireContext(),
+                            R.layout.spinner_item,
+                            folderNames
+                    );
+                    adapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
+                    spinner.setAdapter(adapter);
+
+                    // Set dialog buttons
+                    builder.setPositiveButton("Clone", (dialog, which) -> {
+                        int selectedPosition = spinner.getSelectedItemPosition();
+                        String selectedFolderId = folderIds.get(selectedPosition);
+                        performClone(selectedFolderId);
+                    });
+                    builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+                    builder.show();
+                } else {
+                    Toast.makeText(requireContext(), "Failed to load folders", Toast.LENGTH_SHORT).show();
+                    Log.e("PublicCardFragment", "Failed to fetch folders: " + response.message());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<GetFolderDto>> call, Throwable t) {
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(requireContext(), "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                Log.e("PublicCardFragment", "Network error fetching folders", t);
+            }
+        });
+    }
+
+    private void performClone(String targetFolderId) {
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Confirm Clone")
+                .setMessage("Clone this desk to the selected folder?")
+                .setPositiveButton("Yes", (dialog, which) -> {
+                    progressBar.setVisibility(View.VISIBLE);
+                    deskRepository.cloneDesk(deskId, targetFolderId, new Callback<DeskDto>() {
+                        @Override
+                        public void onResponse(Call<DeskDto> call, Response<DeskDto> response) {
+                            progressBar.setVisibility(View.GONE);
+                            if (response.isSuccessful() && response.body() != null) {
+                                Toast.makeText(requireContext(), "Desk cloned successfully", Toast.LENGTH_SHORT).show();
+                            } else {
+                                String message = response.message();
+                                if (response.code() == 400) {
+                                    message = "Invalid request: Desk not public, folder not owned, or folder ID missing";
+                                } else if (response.code() == 404) {
+                                    message = "Desk or folder not found";
+                                }
+                                Toast.makeText(requireContext(), "Failed to clone desk: " + message, Toast.LENGTH_SHORT).show();
+                                Log.e("PublicCardFragment", "Failed to clone desk: " + response.message());
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(Call<DeskDto> call, Throwable t) {
+                            progressBar.setVisibility(View.GONE);
+                            Toast.makeText(requireContext(), "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                            Log.e("PublicCardFragment", "Network error cloning desk", t);
+                        }
+                    });
+                })
+                .setNegativeButton("No", null)
+                .show();
     }
 
     private void filterCards(String query) {
@@ -176,124 +273,5 @@ public class PublicCardFragment extends Fragment {
             }
         }
         adapter.notifyDataSetChanged();
-    }
-
-    private void cloneDesk() {
-        // Show folder selection dialog
-        showFolderSelectionDialog();
-    }
-
-    private void showFolderSelectionDialog() {
-//        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
-//        builder.setTitle("Select Folder");
-//
-//        // Fetch all folders using FolderRepository
-//        List<Folder> folders = folderRepository.getAllFolders();
-//        List<String> folderNames = new ArrayList<>();
-//        List<Integer> folderIds = new ArrayList<>();
-//        folderNames.add("No Folder");
-//        folderIds.add(null);
-//        for (Folder folder : folders) {
-//            folderNames.add(folder.getName());
-//            folderIds.add(folder.getId());
-//        }
-//
-//        // Create spinner
-//        Spinner spinner = new Spinner(requireContext());
-//        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-//                requireContext(),
-//                R.layout.spinner_item,  // Layout tùy chỉnh cho item
-//                folderNames
-//        );
-//        adapter.setDropDownViewResource(R.layout.spinner_dropdown_item);  // Layout tùy chỉnh cho dropdown
-//        spinner.setAdapter(adapter);
-//
-//        builder.setView(spinner);
-//        builder.setPositiveButton("Clone", (dialog, which) -> {
-//            int selectedPosition = spinner.getSelectedItemPosition();
-//            Integer selectedFolderId = folderIds.get(selectedPosition);
-//
-//            // Proceed with cloning
-//            performClone(selectedFolderId);
-//        });
-//        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
-//        builder.show();
-//    }
-//
-//    private void performClone(Integer selectedFolderId) {
-//        ApiService apiService = ApiClient.getApiService();
-//        Call<DeskDto> deskCall = apiService.getDeskById(deskId);
-//        deskCall.enqueue(new Callback<DeskDto>() {
-//            @Override
-//            public void onResponse(Call<DeskDto> call, Response<DeskDto> response) {
-//                String originalDeskName = "Cloned Desk";
-//                if (response.isSuccessful() && response.body() != null) {
-//                    originalDeskName = response.body().getName();
-//                } else if (response.code() == 404) {
-//                    Toast.makeText(requireContext(), "Desk not found", Toast.LENGTH_SHORT).show();
-//                    return;
-//                } else {
-//                    Toast.makeText(requireContext(), "Failed to load desk", Toast.LENGTH_SHORT).show();
-//                    return;
-//                }
-//
-//                Desk newDesk = new Desk();
-//                newDesk.setName(originalDeskName + " - Cloned");
-//                newDesk.setFolderId(selectedFolderId);
-//                newDesk.setPublic(false);
-//                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault());
-//                newDesk.setCreatedAt(sdf.format(new Date()));
-//                newDesk.setLastModified(sdf.format(new Date()));
-//                newDesk.setSyncStatus("pending_create");
-//
-//                long newdeskId = deskRepository.insertDesk(newDesk);
-//                if (newdeskId == -1) {
-//                    Toast.makeText(requireContext(), "Failed to clone desk", Toast.LENGTH_SHORT).show();
-//                    return;
-//                }
-//
-//                Call<List<CardDto>> cardCall = apiService.getCardsByDeskId(deskId);
-//                cardCall.enqueue(new Callback<List<CardDto>>() {
-//                    @Override
-//                    public void onResponse(Call<List<CardDto>> call, Response<List<CardDto>> response) {
-//                        if (response.isSuccessful() && response.body() != null) {
-//                            List<CardDto> cards = response.body();
-//                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault());
-//                            for (CardDto cardDto : cards) {
-//                                Card newCard = new Card();
-//                                newCard.setFront(cardDto.getFront());
-//                                newCard.setBack(cardDto.getBack());
-//                                newCard.setDeskId((int) newdeskId);
-//                                newCard.setCreatedAt(sdf.format(new Date()));
-//                                newCard.setLastModified(sdf.format(new Date()));
-//                                newCard.setSyncStatus("pending_create");
-//
-//                                long newCardId = cardRepository.insertCard(newCard, false);
-//                                if (newCardId == -1) {
-//                                    Log.e("PublicCardFragment", "Failed to insert card for deskId: " + newdeskId);
-//                                }
-//                            }
-//
-//                            Toast.makeText(requireContext(), "Desk cloned successfully", Toast.LENGTH_SHORT).show();
-//                        } else {
-//                            Toast.makeText(requireContext(), "Failed to load cards", Toast.LENGTH_SHORT).show();
-//                        }
-//                    }
-//
-//                    @Override
-//                    public void onFailure(Call<List<CardDto>> call, Throwable t) {
-//                        Toast.makeText(requireContext(), "Error fetching cards: " + t.getMessage(), Toast.LENGTH_SHORT).show();
-//                        Log.e("PublicCardFragment", "Failed to fetch cards for cloning", t);
-//                    }
-//                });
-//            }
-//
-//
-//            @Override
-//            public void onFailure(Call<DeskDto> call, Throwable t) {
-//                Toast.makeText(requireContext(), "Error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
-//                Log.e("PublicCardFragment", "Failed to fetch desk information", t);
-//            }
-//        });
     }
 }

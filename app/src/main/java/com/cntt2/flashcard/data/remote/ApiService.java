@@ -77,6 +77,9 @@ public interface ApiService {
     @DELETE("api/desk/{id}")
     Call<Void> deleteDesk(@Path("id") String id);
 
+    @POST("api/desk/{id}/clone")
+    Call<DeskDto> cloneDesk(@Path("id") String id, @Query("targetFolderId") String targetFolderId);
+
     // Card endpoints
     @POST("api/card")
     Call<CardDto> createCard(@Body CardDto card);
