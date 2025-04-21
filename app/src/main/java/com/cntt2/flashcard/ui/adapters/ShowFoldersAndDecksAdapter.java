@@ -7,31 +7,30 @@ import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.cntt2.flashcard.R;
-import com.cntt2.flashcard.model.Desk;
-import com.cntt2.flashcard.model.Folder;
+import com.cntt2.flashcard.data.remote.dto.DeskDto;
+import com.cntt2.flashcard.data.remote.dto.NestedFolderDto;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class ShowFoldersAndDecksAdapter extends BaseAdapter {
     private Activity context;
-    private List<Folder> folderList;
-    private List<Desk> allDesks;
+    private List<NestedFolderDto> folderList;
+    private List<DeskDto> allDesks;
     private LayoutInflater inflater;
     private int indentWidth = 60;
     private boolean isSearchMode = false;
-    private List<Desk> filteredDesks;
+    private List<DeskDto> filteredDesks;
 
     private static final int TYPE_FOLDER = 0;
     private static final int TYPE_DESK = 1;
 
     private class ListItem {
-        Object item; // folder hay deck
-        int level; // cấp 0 là cha
-        int type; // folder hay deck
+        Object item; // folder or desk
+        int level; // level 0 is root
+        int type; // folder or desk
 
         ListItem(Object item, int level, int type) {
             this.item = item;
@@ -41,8 +40,9 @@ public class ShowFoldersAndDecksAdapter extends BaseAdapter {
     }
 
     private List<ListItem> flattenedList = new ArrayList<>();
+    private List<NestedFolderDto> expandedFolders = new ArrayList<>();
 
-    public ShowFoldersAndDecksAdapter(Activity context, List<Folder> folderList, List<Desk> allDesks) {
+    public ShowFoldersAndDecksAdapter(Activity context, List<NestedFolderDto> folderList, List<DeskDto> allDesks) {
         this.context = context;
         this.folderList = folderList;
         this.allDesks = allDesks;
@@ -53,23 +53,23 @@ public class ShowFoldersAndDecksAdapter extends BaseAdapter {
     private void updateFlattenedList() {
         flattenedList.clear();
         if (!isSearchMode) {
-            for (Folder folder : folderList) {
+            for (NestedFolderDto folder : folderList) {
                 addFolderToFlattenedList(folder, 0);
             }
         } else {
-            for (Desk desk : filteredDesks) {
-                flattenedList.add(new ListItem(desk, 0, TYPE_DESK)); // Level = 0 để không thụt lề
+            for (DeskDto desk : filteredDesks) {
+                flattenedList.add(new ListItem(desk, 0, TYPE_DESK));
             }
         }
     }
 
-    private void addFolderToFlattenedList(Folder folder, int level) {
+    private void addFolderToFlattenedList(NestedFolderDto folder, int level) {
         flattenedList.add(new ListItem(folder, level, TYPE_FOLDER));
-        if (folder.isExpanded()) {
-            for (Folder subFolder : folder.getSubFolders()) {
+        if (expandedFolders.contains(folder)) {
+            for (NestedFolderDto subFolder : folder.getSubFolders()) {
                 addFolderToFlattenedList(subFolder, level + 1);
             }
-            for (Desk desk : folder.getDesks()) {
+            for (DeskDto desk : folder.getDesks()) {
                 flattenedList.add(new ListItem(desk, level + 1, TYPE_DESK));
             }
         }
@@ -93,10 +93,10 @@ public class ShowFoldersAndDecksAdapter extends BaseAdapter {
     @Override
     public long getItemId(int position) {
         Object item = getItem(position);
-        if (item instanceof Folder) {
-            return ((Folder) item).getId();
-        } else if (item instanceof Desk) {
-            return ((Desk) item).getId();
+        if (item instanceof NestedFolderDto) {
+            return position; // Use position as ID since string IDs can't be long
+        } else if (item instanceof DeskDto) {
+            return position;
         }
         return position;
     }
@@ -106,13 +106,13 @@ public class ShowFoldersAndDecksAdapter extends BaseAdapter {
         ListItem listItem = flattenedList.get(position);
 
         if (listItem.type == TYPE_FOLDER) {
-            return getFolderView(position, convertView, parent, (Folder) listItem.item, listItem.level);
+            return getFolderView(position, convertView, parent, (NestedFolderDto) listItem.item, listItem.level);
         } else {
-            return getDeskView(position, convertView, parent, (Desk) listItem.item, listItem.level);
+            return getDeskView(position, convertView, parent, (DeskDto) listItem.item, listItem.level);
         }
     }
 
-    private View getFolderView(int position, View convertView, ViewGroup parent, Folder folder, int level) {
+    private View getFolderView(int position, View convertView, ViewGroup parent, NestedFolderDto folder, int level) {
         View view = convertView;
         if (view == null || !(TYPE_FOLDER == (Integer) view.getTag())) {
             view = inflater.inflate(R.layout.folder_item, null);
@@ -124,40 +124,37 @@ public class ShowFoldersAndDecksAdapter extends BaseAdapter {
         ImageView folderIcon = view.findViewById(R.id.imageView2);
         folderName.setText(folder.getName());
 
-        // Đặt margin thụt lề
         ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) folderIcon.getLayoutParams();
         params.leftMargin = level * indentWidth;
         folderIcon.setLayoutParams(params);
 
-        // Nếu có thư mục con hoặc desk thì hiện dropdownIcon
         boolean hasSubFoldersOrDesks = !folder.getSubFolders().isEmpty() || !folder.getDesks().isEmpty();
         if (!hasSubFoldersOrDesks) {
             dropdownIcon.setVisibility(View.INVISIBLE);
         } else {
             dropdownIcon.setVisibility(View.VISIBLE);
-            // Thay đổi icon dropdown dựa trên trạng thái mở rộng
-            dropdownIcon.setImageResource(folder.isExpanded() ?
+            dropdownIcon.setImageResource(expandedFolders.contains(folder) ?
                     R.drawable.dropdownup : R.drawable.dropdown);
         }
 
-        // Gắn sự kiện click cho toàn bộ view của thư mục
         view.setOnClickListener(v -> {
-            // Chỉ mở rộng/thu gọn nếu thư mục có subfolder hoặc desk
             if (hasSubFoldersOrDesks) {
-                folder.setExpanded(!folder.isExpanded());
+                if (expandedFolders.contains(folder)) {
+                    expandedFolders.remove(folder);
+                } else {
+                    expandedFolders.add(folder);
+                }
                 updateFlattenedList();
                 notifyDataSetChanged();
             }
         });
 
-        view.setOnLongClickListener(v ->{
-            return false;
-        });
+        view.setOnLongClickListener(v -> false);
 
         return view;
     }
 
-    private View getDeskView(int position, View convertView, ViewGroup parent, Desk desk, int level) {
+    private View getDeskView(int position, View convertView, ViewGroup parent, DeskDto desk, int level) {
         View view = convertView;
         if (view == null || !(TYPE_DESK == (Integer) view.getTag())) {
             view = inflater.inflate(R.layout.deck_item, null);
@@ -167,29 +164,29 @@ public class ShowFoldersAndDecksAdapter extends BaseAdapter {
         ImageView deskIcon = view.findViewById(R.id.deckIcon);
         deskName.setText(desk.getName());
 
-        // Đặt margin thụt lề
         ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) deskIcon.getLayoutParams();
         params.leftMargin = level * indentWidth;
         deskIcon.setLayoutParams(params);
         return view;
     }
 
-    public void setSearchMode(boolean isSearchMode, List<Desk> filteredDesks) {
+    public void setSearchMode(boolean isSearchMode, List<DeskDto> filteredDesks) {
         this.isSearchMode = isSearchMode;
         this.filteredDesks = filteredDesks;
-        updateFlattenedList();
-    }
-
-    public void updateFolderList(List<Folder> newFolderList) {
-        this.folderList = newFolderList;
-        this.allDesks = getAllDesksFromFolders(newFolderList); // Cập nhật allDesks
         updateFlattenedList();
         notifyDataSetChanged();
     }
 
-    private List<Desk> getAllDesksFromFolders(List<Folder> folders) {
-        List<Desk> desks = new ArrayList<>();
-        for (Folder folder : folders) {
+    public void updateFolderList(List<NestedFolderDto> newFolderList) {
+        this.folderList = newFolderList;
+        this.allDesks = getAllDesksFromFolders(newFolderList);
+        updateFlattenedList();
+        notifyDataSetChanged();
+    }
+
+    private List<DeskDto> getAllDesksFromFolders(List<NestedFolderDto> folders) {
+        List<DeskDto> desks = new ArrayList<>();
+        for (NestedFolderDto folder : folders) {
             desks.addAll(folder.getDesks());
             desks.addAll(getAllDesksFromFolders(folder.getSubFolders()));
         }

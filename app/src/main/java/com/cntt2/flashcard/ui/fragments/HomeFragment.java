@@ -2,33 +2,31 @@ package com.cntt2.flashcard.ui.fragments;
 
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
-import android.app.Dialog;
 import android.content.Intent;
 import android.graphics.Color;
-import android.os.Build;
 import android.os.Bundle;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
-import android.widget.PopupMenu;
+import android.widget.ProgressBar;
 import android.widget.SearchView;
 import android.widget.Spinner;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
 
 import com.cntt2.flashcard.App;
 import com.cntt2.flashcard.R;
+import com.cntt2.flashcard.data.remote.ApiService;
+import com.cntt2.flashcard.data.remote.dto.DeskDto;
+import com.cntt2.flashcard.data.remote.dto.GetFolderDto;
+import com.cntt2.flashcard.data.remote.dto.NestedFolderDto;
+import com.cntt2.flashcard.data.remote.dto.PostFolderDto;
 import com.cntt2.flashcard.data.repository.DeskRepository;
 import com.cntt2.flashcard.data.repository.FolderRepository;
-import com.cntt2.flashcard.model.Desk;
-import com.cntt2.flashcard.model.Folder;
 import com.cntt2.flashcard.ui.activities.ListCardActivity;
 import com.cntt2.flashcard.ui.adapters.ShowFoldersAndDecksAdapter;
 import com.cntt2.flashcard.utils.ConfirmDialog;
@@ -36,22 +34,24 @@ import com.cntt2.flashcard.utils.OptionsDialog;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class HomeFragment extends Fragment {
 
-    private ListView ShowFolderAndDeckLV;
-    private ArrayList<Folder> nestedFoldersDesks;
+    private ListView showFolderAndDeckLV;
+    private ArrayList<NestedFolderDto> nestedFolders;
     private ShowFoldersAndDecksAdapter adapter;
-    private FloatingActionButton AddFolderAndDeckFAB;
-    private FolderRepository folderRepository = App.getInstance().getFolderRepository();
-    private DeskRepository deskRepository = App.getInstance().getDeskRepository();
+    private FloatingActionButton addFolderAndDeckFAB;
+    private FolderRepository folderRepository;
+    private DeskRepository deskRepository;
     private SearchView searchView;
-    private List<Desk> allDesks;
+    private List<DeskDto> allDesks;
+    private ProgressBar progressBar;
 
     public HomeFragment() {
         // Required empty public constructor
@@ -65,14 +65,22 @@ public class HomeFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_home, container, false);
-        ShowFolderAndDeckLV = view.findViewById(R.id.ShowFoldersAndDecksLV);
-        AddFolderAndDeckFAB = view.findViewById(R.id.AddFoldersAndDecksFAB);
-        nestedFoldersDesks = getFoldersFromLocalDb();
-        allDesks = deskRepository.getAllDesks();
-        adapter = new ShowFoldersAndDecksAdapter(getActivity(), nestedFoldersDesks, allDesks);
-        ShowFolderAndDeckLV.setAdapter(adapter);
-        AddFolderAndDeckFAB.setOnClickListener(v -> showCreateBottomSheet());
+        showFolderAndDeckLV = view.findViewById(R.id.ShowFoldersAndDecksLV);
+        addFolderAndDeckFAB = view.findViewById(R.id.AddFoldersAndDecksFAB);
+        progressBar = view.findViewById(R.id.progressBar); // Add to layout
         searchView = view.findViewById(R.id.SearchFoldersAndDecksSV);
+
+        folderRepository = App.getInstance().getFolderRepository();
+        deskRepository = App.getInstance().getDeskRepository();
+
+        nestedFolders = new ArrayList<>();
+        allDesks = new ArrayList<>();
+        adapter = new ShowFoldersAndDecksAdapter(requireActivity(), nestedFolders, allDesks);
+        showFolderAndDeckLV.setAdapter(adapter);
+
+        fetchNestedFolders();
+
+        addFolderAndDeckFAB.setOnClickListener(v -> showCreateBottomSheet());
 
         int searchTextId = searchView.getContext().getResources().getIdentifier("android:id/search_src_text", null, null);
         EditText searchEditText = searchView.findViewById(searchTextId);
@@ -80,15 +88,15 @@ public class HomeFragment extends Fragment {
             searchEditText.setTextColor(Color.WHITE);
         }
 
-        ShowFolderAndDeckLV.setOnItemLongClickListener((parent, view1, position, id) -> {
+        showFolderAndDeckLV.setOnItemLongClickListener((parent, view1, position, id) -> {
             showPopupMenu(view1, position);
             return true;
         });
 
-        ShowFolderAndDeckLV.setOnItemClickListener((parent, view1, position, id) -> {
+        showFolderAndDeckLV.setOnItemClickListener((parent, view1, position, id) -> {
             Object selectedItem = adapter.getItem(position);
-            if (selectedItem instanceof Desk) {
-                Desk selectedDesk = (Desk) selectedItem;
+            if (selectedItem instanceof DeskDto) {
+                DeskDto selectedDesk = (DeskDto) selectedItem;
                 Intent intent = new Intent(getActivity(), ListCardActivity.class);
                 intent.putExtra("deskId", selectedDesk.getId());
                 startActivity(intent);
@@ -112,12 +120,38 @@ public class HomeFragment extends Fragment {
         return view;
     }
 
+    private void fetchNestedFolders() {
+        progressBar.setVisibility(View.VISIBLE);
+        folderRepository.getNestedFolders(new Callback<List<NestedFolderDto>>() {
+            @Override
+            public void onResponse(Call<List<NestedFolderDto>> call, Response<List<NestedFolderDto>> response) {
+                progressBar.setVisibility(View.GONE);
+                if (response.isSuccessful() && response.body() != null) {
+                    nestedFolders.clear();
+                    nestedFolders.addAll(response.body());
+                    allDesks.clear();
+                    allDesks.addAll(getAllDesksFromFolders(nestedFolders));
+                    adapter.updateFolderList(nestedFolders);
+                    adapter.notifyDataSetChanged();
+                } else {
+                    Toast.makeText(requireContext(), "Failed to load folders", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<NestedFolderDto>> call, Throwable t) {
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(requireContext(), "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
     private void showPopupMenu(View view, int position) {
         Object selectedItem = adapter.getItem(position);
         List<OptionsDialog.Option> options = new ArrayList<>();
 
-        if (selectedItem instanceof Folder) {
-            Folder folder = (Folder) selectedItem;
+        if (selectedItem instanceof NestedFolderDto) {
+            NestedFolderDto folder = (NestedFolderDto) selectedItem;
             options.add(new OptionsDialog.Option("Edit", R.drawable.ic_edit, 0xFFFFFFFF, () -> editFolder(folder)));
             options.add(new OptionsDialog.Option("Delete", R.drawable.ic_delete, 0xFFFF5555, () -> {
                 AlertDialog dialog = ConfirmDialog.createConfirmDialog(
@@ -129,8 +163,8 @@ public class HomeFragment extends Fragment {
                 );
                 dialog.show();
             }));
-        } else if (selectedItem instanceof Desk) {
-            Desk desk = (Desk) selectedItem;
+        } else if (selectedItem instanceof DeskDto) {
+            DeskDto desk = (DeskDto) selectedItem;
             options.add(new OptionsDialog.Option("Edit", R.drawable.ic_edit, 0xFFFFFFFF, () -> editDesk(desk)));
             options.add(new OptionsDialog.Option(desk.isPublic() ? "Make private" : "Make public", R.drawable.ic_public, 0xFFFFFFFF, () -> handlePublicDesk(desk)));
             options.add(new OptionsDialog.Option("Delete", R.drawable.ic_delete, 0xFFFF5555, () -> {
@@ -148,19 +182,41 @@ public class HomeFragment extends Fragment {
         OptionsDialog.showOptionsDialog(requireContext(), view, options);
     }
 
-    private void handlePublicDesk(Desk desk) {
-        desk.setPublic(!desk.isPublic());
-        deskRepository.updateDesk(desk, false);
-        nestedFoldersDesks = getFoldersFromLocalDb();  // Cập nhật danh sách
-        adapter.updateFolderList(nestedFoldersDesks);  // Cập nhật giao diện
-        Toast.makeText(getContext(), "Desk visibility updated", Toast.LENGTH_SHORT).show();
+    private void handlePublicDesk(DeskDto desk) {
+        progressBar.setVisibility(View.VISIBLE);
+        DeskDto updatedDesk = new DeskDto();
+        updatedDesk.setId(desk.getId());
+        updatedDesk.setName(desk.getName());
+        updatedDesk.setPublic(!desk.isPublic());
+        updatedDesk.setFolderId(desk.getFolderId());
+        updatedDesk.setCreatedAt(desk.getCreatedAt());
+        updatedDesk.setLastModified(desk.getLastModified());
+
+        deskRepository.updateDesk(desk.getId(), updatedDesk, new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                progressBar.setVisibility(View.GONE);
+                if (response.isSuccessful()) {
+                    fetchNestedFolders();
+                    Toast.makeText(getContext(), "Desk visibility updated", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(getContext(), "Failed to update desk visibility", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(getContext(), "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
-    private void editFolder(Folder folder) {
-        showEditFolderDialog(folder);  // Mở dialog để sửa thông tin Folder
+    private void editFolder(NestedFolderDto folder) {
+        showEditFolderDialog(folder);
     }
 
-    private void showEditFolderDialog(Folder folder) {
+    private void showEditFolderDialog(NestedFolderDto folder) {
         View view = LayoutInflater.from(getContext()).inflate(R.layout.bottom_sheet_create_folder, null);
         BottomSheetDialog editFolderDialog = new BottomSheetDialog(requireContext());
         editFolderDialog.setContentView(view);
@@ -176,11 +232,11 @@ public class HomeFragment extends Fragment {
         spinnerAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         parentFolderSpinner.setAdapter(spinnerAdapter);
 
-        List<Folder> allFolders = getAllFoldersList(folder.getId());
+        List<NestedFolderDto> allFolders = getAllFoldersList(folder.getId());
         int parentPosition = 0;
         if (folder.getParentFolderId() != null) {
             for (int i = 0; i < allFolders.size(); i++) {
-                if (allFolders.get(i).getId() == folder.getParentFolderId()) {
+                if (allFolders.get(i).getId().equals(folder.getParentFolderId())) {
                     parentPosition = i + 1;
                     break;
                 }
@@ -195,41 +251,68 @@ public class HomeFragment extends Fragment {
                 return;
             }
 
+            PostFolderDto updatedFolder = new PostFolderDto();
+            updatedFolder.setName(newName);
             int selectedPosition = parentFolderSpinner.getSelectedItemPosition();
             if (selectedPosition == 0) {
-                folder.setParentFolderId(null);  // Không có thư mục cha
+                updatedFolder.setParentFolderId(null);
             } else {
-                Folder parentFolder = allFolders.get(selectedPosition - 1);
-                folder.setParentFolderId(parentFolder.getId());
+                updatedFolder.setParentFolderId(allFolders.get(selectedPosition - 1).getId());
             }
 
-            folder.setName(newName);  // Cập nhật tên mới
-            folderRepository.updateFolder(folder, false);  // Lưu vào cơ sở dữ liệu
+            progressBar.setVisibility(View.VISIBLE);
+            folderRepository.updateFolder(folder.getId(), updatedFolder, new Callback<Void>() {
+                @Override
+                public void onResponse(Call<Void> call, Response<Void> response) {
+                    progressBar.setVisibility(View.GONE);
+                    if (response.isSuccessful()) {
+                        fetchNestedFolders();
+                        Toast.makeText(getContext(), "Folder updated", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(getContext(), "Failed to update folder", Toast.LENGTH_SHORT).show();
+                    }
+                    editFolderDialog.dismiss();
+                }
 
-            // **Sửa đổi ở đây**: Tải lại dữ liệu và cập nhật adapter
-            nestedFoldersDesks = getFoldersFromLocalDb();  // Lấy cấu trúc folder mới từ cơ sở dữ liệu
-            adapter.updateFolderList(nestedFoldersDesks);  // Cập nhật dữ liệu trong adapter
-            adapter.notifyDataSetChanged();  // Thông báo cập nhật giao diện
-
-            editFolderDialog.dismiss();
-            Toast.makeText(getContext(), "Folder updated", Toast.LENGTH_SHORT).show();
+                @Override
+                public void onFailure(Call<Void> call, Throwable t) {
+                    progressBar.setVisibility(View.GONE);
+                    Toast.makeText(getContext(), "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                    editFolderDialog.dismiss();
+                }
+            });
         });
 
         editFolderDialog.show();
     }
-    private void deleteFolder(Folder folder) {
-        folderRepository.deleteFolder(folder);
-        nestedFoldersDesks = getFoldersFromLocalDb();
-        adapter.updateFolderList(nestedFoldersDesks);
-        allDesks = deskRepository.getAllDesks();
-        Toast.makeText(getContext(), "Folder deleted", Toast.LENGTH_SHORT).show();
+
+    private void deleteFolder(NestedFolderDto folder) {
+        progressBar.setVisibility(View.VISIBLE);
+        folderRepository.deleteFolder(folder.getId(), new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                progressBar.setVisibility(View.GONE);
+                if (response.isSuccessful()) {
+                    fetchNestedFolders();
+                    Toast.makeText(getContext(), "Folder deleted", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(getContext(), "Failed to delete folder", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(getContext(), "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
-    private void editDesk(Desk desk) {
+    private void editDesk(DeskDto desk) {
         showEditDeskDialog(desk);
     }
 
-    public void showEditDeskDialog(Desk desk) {
+    private void showEditDeskDialog(DeskDto desk) {
         View view = LayoutInflater.from(getContext()).inflate(R.layout.bottom_sheet_create_deck, null);
         BottomSheetDialog editDeskDialog = new BottomSheetDialog(requireContext());
         editDeskDialog.setContentView(view);
@@ -239,26 +322,21 @@ public class HomeFragment extends Fragment {
 
         Spinner folderSpinner = view.findViewById(R.id.folderSpinner);
         List<String> folderNames = getFolderNamesWithIndent();
-        folderNames.set(0, getString(R.string.select_folder_prompt)); // "Please select a folder"
+        folderNames.set(0, getString(R.string.select_folder_prompt));
         ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(
                 requireContext(), R.layout.spinner_item, folderNames
         );
-
         spinnerAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         folderSpinner.setAdapter(spinnerAdapter);
 
-        List<Folder> allFolders = getAllFoldersList();
-
-
+        List<NestedFolderDto> allFolders = getAllFoldersList();
         int folderPosition = 0;
-
         for (int i = 0; i < allFolders.size(); i++) {
-            if (allFolders.get(i).getId() == desk.getFolderId()) {
+            if (allFolders.get(i).getId().equals(desk.getFolderId())) {
                 folderPosition = i + 1;
                 break;
             }
         }
-
         folderSpinner.setSelection(folderPosition);
 
         view.findViewById(R.id.btnDeckSave).setOnClickListener(v -> {
@@ -274,43 +352,75 @@ public class HomeFragment extends Fragment {
                 return;
             }
 
-            Folder parentFolder = allFolders.get(selectedPosition - 1);
-            desk.setFolderId(parentFolder.getId());
-            desk.setName(newName);  // Cập nhật tên mới
-            deskRepository.updateDesk(desk, false);  // Lưu vào cơ sở dữ liệu
+            DeskDto updatedDesk = new DeskDto();
+            updatedDesk.setId(desk.getId());
+            updatedDesk.setName(newName);
+            updatedDesk.setPublic(desk.isPublic());
+            updatedDesk.setFolderId(allFolders.get(selectedPosition - 1).getId());
+            updatedDesk.setCreatedAt(desk.getCreatedAt());
+            updatedDesk.setLastModified(desk.getLastModified());
 
-            nestedFoldersDesks = getFoldersFromLocalDb();  // Lấy cấu trúc folder mới từ cơ sở dữ liệu
-            adapter.updateFolderList(nestedFoldersDesks);  // Cập nhật dữ liệu trong adapter
-            adapter.notifyDataSetChanged();  // Thông báo cập nhật giao diện
+            progressBar.setVisibility(View.VISIBLE);
+            deskRepository.updateDesk(desk.getId(), updatedDesk, new Callback<Void>() {
+                @Override
+                public void onResponse(Call<Void> call, Response<Void> response) {
+                    progressBar.setVisibility(View.GONE);
+                    if (response.isSuccessful()) {
+                        fetchNestedFolders();
+                        Toast.makeText(getContext(), "Desk updated", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(getContext(), "Failed to update desk", Toast.LENGTH_SHORT).show();
+                    }
+                    editDeskDialog.dismiss();
+                }
 
-            editDeskDialog.dismiss();
-            Toast.makeText(getContext(), "Desk updated", Toast.LENGTH_SHORT).show();
+                @Override
+                public void onFailure(Call<Void> call, Throwable t) {
+                    progressBar.setVisibility(View.GONE);
+                    Toast.makeText(getContext(), "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                    editDeskDialog.dismiss();
+                }
+            });
         });
 
         editDeskDialog.show();
     }
 
-    private void deleteDesk(Desk desk) {
-        deskRepository.deleteDesk(desk);  // Xóa Desk từ cơ sở dữ liệu
-        nestedFoldersDesks = getFoldersFromLocalDb();  // Cập nhật danh sách
-        adapter.updateFolderList(nestedFoldersDesks);  // Cập nhật giao diện
-        allDesks = deskRepository.getAllDesks();  // Cập nhật danh sách Desk
-        Toast.makeText(getContext(), "Desk deleted", Toast.LENGTH_SHORT).show();
+    private void deleteDesk(DeskDto desk) {
+        progressBar.setVisibility(View.VISIBLE);
+        deskRepository.deleteDesk(desk.getId(), new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                progressBar.setVisibility(View.GONE);
+                if (response.isSuccessful()) {
+                    fetchNestedFolders();
+                    Toast.makeText(getContext(), "Desk deleted", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(getContext(), "Failed to delete desk", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(getContext(), "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void filterDesks(String query) {
         if (query.isEmpty()) {
-            adapter.setSearchMode(false, null); // Quay lại chế độ bình thường
+            adapter.setSearchMode(false, null);
         } else {
-            List<Desk> filteredDesks = new ArrayList<>();
-            for (Desk desk : allDesks) {
+            List<DeskDto> filteredDesks = new ArrayList<>();
+            for (DeskDto desk : allDesks) {
                 if (desk.getName().toLowerCase().contains(query.toLowerCase())) {
                     filteredDesks.add(desk);
                 }
             }
-            adapter.setSearchMode(true, filteredDesks); // Chuyển sang chế độ tìm kiếm
+            adapter.setSearchMode(true, filteredDesks);
         }
-        adapter.notifyDataSetChanged(); // Cập nhật giao diện
+        adapter.notifyDataSetChanged();
     }
 
     private void showCreateBottomSheet() {
@@ -349,36 +459,38 @@ public class HomeFragment extends Fragment {
                 folderNameInput.setError("Folder name cannot be empty");
                 return;
             }
+
+            PostFolderDto newFolder = new PostFolderDto();
+            newFolder.setName(folderName);
             int selectedPosition = parentFolderSpinner.getSelectedItemPosition();
-            createNewFolder(folderName, selectedPosition);
-            folderDialog.dismiss();
+            if (selectedPosition > 0) {
+                newFolder.setParentFolderId(getAllFoldersList().get(selectedPosition - 1).getId());
+            }
+
+            progressBar.setVisibility(View.VISIBLE);
+            folderRepository.insertFolder(newFolder, new Callback<GetFolderDto>() {
+                @Override
+                public void onResponse(Call<GetFolderDto> call, Response<GetFolderDto> response) {
+                    progressBar.setVisibility(View.GONE);
+                    if (response.isSuccessful()) {
+                        fetchNestedFolders();
+                        Toast.makeText(requireContext(), "Folder created successfully", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(requireContext(), "Failed to create folder", Toast.LENGTH_SHORT).show();
+                    }
+                    folderDialog.dismiss();
+                }
+
+                @Override
+                public void onFailure(Call<GetFolderDto> call, Throwable t) {
+                    progressBar.setVisibility(View.GONE);
+                    Toast.makeText(requireContext(), "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                    folderDialog.dismiss();
+                }
+            });
         });
 
         folderDialog.show();
-    }
-
-    private void createNewFolder(String folderName, int selectedPosition) {
-        String createdAt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault()).format(new Date());
-        Folder newFolder = new Folder(folderName, createdAt);
-        List<Folder> allFolders = getAllFoldersList();
-
-        if (selectedPosition == 0) {
-            nestedFoldersDesks.add(newFolder);
-        } else {
-            Folder parentFolder = allFolders.get(selectedPosition - 1);
-            newFolder.setParentFolderId(parentFolder.getId());
-            parentFolder.addSubFolder(newFolder);
-            //parentFolder.setExpanded(true);
-        }
-
-        long insertedId = folderRepository.insertFolder(newFolder);
-        if (insertedId != -1) {
-            newFolder.setId((int) insertedId);
-            adapter.updateFolderList(nestedFoldersDesks);
-            Toast.makeText(requireContext(), "Folder created successfully", Toast.LENGTH_SHORT).show();
-        } else {
-            Toast.makeText(requireContext(), "Failed to create folder", Toast.LENGTH_SHORT).show();
-        }
     }
 
     private void showCreateDeckDialog() {
@@ -388,7 +500,7 @@ public class HomeFragment extends Fragment {
 
         Spinner folderSpinner = view.findViewById(R.id.folderSpinner);
         List<String> folderNames = getFolderNamesWithIndent();
-        folderNames.set(0, getString(R.string.select_folder_prompt)); // "Please select a folder"
+        folderNames.set(0, getString(R.string.select_folder_prompt));
         ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(
                 requireContext(), R.layout.spinner_item, folderNames
         );
@@ -402,80 +514,91 @@ public class HomeFragment extends Fragment {
                 deckNameInput.setError("Deck name cannot be empty");
                 return;
             }
+
             int selectedPosition = folderSpinner.getSelectedItemPosition();
             if (selectedPosition == 0) {
                 Toast.makeText(requireContext(), "Please select a folder", Toast.LENGTH_SHORT).show();
                 return;
             }
-            createNewDesk(deckName, selectedPosition);
-            deckDialog.dismiss();
+
+            DeskDto newDesk = new DeskDto();
+            newDesk.setName(deckName);
+            newDesk.setPublic(false);
+            newDesk.setFolderId(getAllFoldersList().get(selectedPosition - 1).getId());
+
+            progressBar.setVisibility(View.VISIBLE);
+            deskRepository.insertDesk(newDesk, new Callback<DeskDto>() {
+                @Override
+                public void onResponse(Call<DeskDto> call, Response<DeskDto> response) {
+                    progressBar.setVisibility(View.GONE);
+                    if (response.isSuccessful()) {
+                        fetchNestedFolders();
+                        Toast.makeText(requireContext(), "Desk created successfully", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(requireContext(), "Failed to create desk", Toast.LENGTH_SHORT).show();
+                    }
+                    deckDialog.dismiss();
+                }
+
+                @Override
+                public void onFailure(Call<DeskDto> call, Throwable t) {
+                    progressBar.setVisibility(View.GONE);
+                    Toast.makeText(requireContext(), "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                    deckDialog.dismiss();
+                }
+            });
         });
 
         deckDialog.show();
     }
 
-    private void createNewDesk(String deckName, int selectedPosition) {
-        String createdAt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault()).format(new Date());
-        Desk newDesk = new Desk(deckName, 0, createdAt);
-        List<Folder> allFolders = getAllFoldersList();
-        Folder parentFolder = allFolders.get(selectedPosition - 1);
-        newDesk.setFolderId(parentFolder.getId());
-
-        long insertedId = deskRepository.insertDesk(newDesk);
-        if (insertedId != -1) {
-            newDesk.setId((int) insertedId);
-            parentFolder.addDesk(newDesk);
-            //parentFolder.setExpanded(true);
-            adapter.updateFolderList(nestedFoldersDesks);
-            allDesks = deskRepository.getAllDesks();  // Cập nhật danh sách Desk
-            Toast.makeText(requireContext(), "Desk created successfully", Toast.LENGTH_SHORT).show();
-        } else {
-            Toast.makeText(requireContext(), "Failed to create desk", Toast.LENGTH_SHORT).show();
-        }
-    }
-
     private List<String> getFolderNamesWithIndent() {
-        return getFolderNamesWithIndent(-1);
+        return getFolderNamesWithIndent(null);
     }
 
-    private List<String> getFolderNamesWithIndent(int excludedFolderId) {
+    private List<String> getFolderNamesWithIndent(String excludedFolderId) {
         List<String> folderNames = new ArrayList<>();
-        folderNames.add(getString(R.string.no_parent_folder)); // "No Parent Folder"
-        getAllFoldersWithIndent(nestedFoldersDesks, folderNames, "", excludedFolderId);
+        folderNames.add(getString(R.string.no_parent_folder));
+        getAllFoldersWithIndent(nestedFolders, folderNames, "", excludedFolderId);
         return folderNames;
     }
 
-    private void getAllFoldersWithIndent(List<Folder> folders, List<String> folderNames, String indent, int excludedFolderId) {
-        for (Folder folder : folders) {
-            if (folder.getId() == excludedFolderId) {
-                continue; // Bỏ qua thư mục đang được chỉnh sửa
+    private void getAllFoldersWithIndent(List<NestedFolderDto> folders, List<String> folderNames, String indent, String excludedFolderId) {
+        for (NestedFolderDto folder : folders) {
+            if (folder.getId().equals(excludedFolderId)) {
+                continue;
             }
             folderNames.add(indent + folder.getName());
             getAllFoldersWithIndent(folder.getSubFolders(), folderNames, indent + "  ", excludedFolderId);
         }
     }
 
-    private List<Folder> getAllFoldersList() {
-        return getAllFoldersList(-1);
+    private List<NestedFolderDto> getAllFoldersList() {
+        return getAllFoldersList(null);
     }
 
-    private List<Folder> getAllFoldersList(int excludedFolderId) {
-        List<Folder> allFolders = new ArrayList<>();
-        getAllFolders(nestedFoldersDesks, allFolders, excludedFolderId);
+    private List<NestedFolderDto> getAllFoldersList(String excludedFolderId) {
+        List<NestedFolderDto> allFolders = new ArrayList<>();
+        getAllFolders(nestedFolders, allFolders, excludedFolderId);
         return allFolders;
     }
 
-    private void getAllFolders(List<Folder> folders, List<Folder> allFolders, int excludedFolderId) {
-        for (Folder folder : folders) {
-            if (folder.getId() == excludedFolderId) {
-                continue; // Bỏ qua thư mục đang được chỉnh sửa
+    private void getAllFolders(List<NestedFolderDto> folders, List<NestedFolderDto> allFolders, String excludedFolderId) {
+        for (NestedFolderDto folder : folders) {
+            if (folder.getId().equals(excludedFolderId)) {
+                continue;
             }
             allFolders.add(folder);
             getAllFolders(folder.getSubFolders(), allFolders, excludedFolderId);
         }
     }
 
-    private ArrayList<Folder> getFoldersFromLocalDb() {
-        return (ArrayList<Folder>) folderRepository.getNestedFolders();
+    private List<DeskDto> getAllDesksFromFolders(List<NestedFolderDto> folders) {
+        List<DeskDto> desks = new ArrayList<>();
+        for (NestedFolderDto folder : folders) {
+            desks.addAll(folder.getDesks());
+            desks.addAll(getAllDesksFromFolders(folder.getSubFolders()));
+        }
+        return desks;
     }
 }

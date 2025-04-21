@@ -37,102 +37,102 @@ public class ListCardActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_list_card);
-
-        txtDeskName = findViewById(R.id.txtDeskName);
-
-        btnAdd = findViewById(R.id.btnAdd);
-        btnCard = findViewById(R.id.btnCard);
-        btnThongKe = findViewById(R.id.btnThongKe);
-        btnBack = findViewById(R.id.btnBack);
-
-        deskId = getIntent().getIntExtra("deskId", -1);
-
-        if (deskId == -1)
-        {
-            finish();
-            return;
-        }
-
-        Desk desk = deskRepository.getDeskById(deskId);
-
-        if (desk != null) {
-            txtDeskName.setText(desk.getName());
-        } else {
-            finish();
-        }
-
-        btnCard.setOnClickListener(view -> {
-            resetButtonBackground();
-            btnCard.setBackgroundResource(R.drawable.toggle_button_background);
-
-            // Show CardFragment
-            CardsFragment cardsFragment = new CardsFragment();
-            Bundle bundle = new Bundle();
-            bundle.putInt("deskId", deskId);
-            cardsFragment.setArguments(bundle);
-
-            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-            transaction.replace(R.id.fragmentContainer, cardsFragment);
-            transaction.commit();
-            btnAdd.setVisibility(View.VISIBLE);
-        });
-
-        btnThongKe.setOnClickListener(view -> {
-            resetButtonBackground();
-            btnThongKe.setBackgroundResource(R.drawable.toggle_button_background);
-
-            StatisticsFragment statisticsFragment = StatisticsFragment.newInstance(deskId);
-            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-            transaction.replace(R.id.fragmentContainer, statisticsFragment);
-            transaction.commit();
-            btnAdd.setVisibility(View.GONE);
-        });
-
-
-        // Initial Fragment (CardFragment)
-        if (savedInstanceState == null) {
-            CardsFragment cardsFragment = new CardsFragment();
-            Bundle bundle = new Bundle();
-            bundle.putInt("deskId", deskId);
-            cardsFragment.setArguments(bundle);
-
-            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-            transaction.replace(R.id.fragmentContainer, cardsFragment);
-            transaction.commit();
-        }
-
-        btnAdd.setOnClickListener(view -> {
-            Intent intent = new Intent(ListCardActivity.this, AddCardActivity.class);
-            intent.putExtra("isEditMode", false);
-            intent.putExtra("deskId", deskId);
-            startActivityForResult(intent, ADD_CARD_REQUEST_CODE);
-        });
-
-        btnBack.setOnClickListener(view -> {
-            finish();
-        });
+          super.onCreate(savedInstanceState);
+          setContentView(R.layout.activity_list_card);
+//
+//        txtDeskName = findViewById(R.id.txtDeskName);
+//
+//        btnAdd = findViewById(R.id.btnAdd);
+//        btnCard = findViewById(R.id.btnCard);
+//        btnThongKe = findViewById(R.id.btnThongKe);
+//        btnBack = findViewById(R.id.btnBack);
+//
+//        deskId = getIntent().getIntExtra("deskId", -1);
+//
+//        if (deskId == -1)
+//        {
+//            finish();
+//            return;
+//        }
+//
+//        Desk desk = deskRepository.getDeskById(deskId);
+//
+//        if (desk != null) {
+//            txtDeskName.setText(desk.getName());
+//        } else {
+//            finish();
+//        }
+//
+//        btnCard.setOnClickListener(view -> {
+//            resetButtonBackground();
+//            btnCard.setBackgroundResource(R.drawable.toggle_button_background);
+//
+//            // Show CardFragment
+//            CardsFragment cardsFragment = new CardsFragment();
+//            Bundle bundle = new Bundle();
+//            bundle.putInt("deskId", deskId);
+//            cardsFragment.setArguments(bundle);
+//
+//            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+//            transaction.replace(R.id.fragmentContainer, cardsFragment);
+//            transaction.commit();
+//            btnAdd.setVisibility(View.VISIBLE);
+//        });
+//
+//        btnThongKe.setOnClickListener(view -> {
+//            resetButtonBackground();
+//            btnThongKe.setBackgroundResource(R.drawable.toggle_button_background);
+//
+//            StatisticsFragment statisticsFragment = StatisticsFragment.newInstance(deskId);
+//            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+//            transaction.replace(R.id.fragmentContainer, statisticsFragment);
+//            transaction.commit();
+//            btnAdd.setVisibility(View.GONE);
+//        });
+//
+//
+//        // Initial Fragment (CardFragment)
+//        if (savedInstanceState == null) {
+//            CardsFragment cardsFragment = new CardsFragment();
+//            Bundle bundle = new Bundle();
+//            bundle.putInt("deskId", deskId);
+//            cardsFragment.setArguments(bundle);
+//
+//            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+//            transaction.replace(R.id.fragmentContainer, cardsFragment);
+//            transaction.commit();
+//        }
+//
+//        btnAdd.setOnClickListener(view -> {
+//            Intent intent = new Intent(ListCardActivity.this, AddCardActivity.class);
+//            intent.putExtra("isEditMode", false);
+//            intent.putExtra("deskId", deskId);
+//            startActivityForResult(intent, ADD_CARD_REQUEST_CODE);
+//        });
+//
+//        btnBack.setOnClickListener(view -> {
+//            finish();
+//        });
     }
 
-    private void resetButtonBackground() {
-        btnCard.setBackgroundResource(R.drawable.toggle_background);
-        btnThongKe.setBackgroundResource(R.drawable.toggle_background);
-    }
+//    private void resetButtonBackground() {
+//        btnCard.setBackgroundResource(R.drawable.toggle_background);
+//        btnThongKe.setBackgroundResource(R.drawable.toggle_background);
+//    }
 
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if ((requestCode == ADD_CARD_REQUEST_CODE || requestCode == EDIT_CARD_REQUEST_CODE) && resultCode == RESULT_OK ) {
-
-            CardsFragment fragment = (CardsFragment) getSupportFragmentManager().findFragmentById(R.id.fragmentContainer);
-            if (fragment != null) {
-                fragment.updateCardList();
-            }
-        }
-    }
+//    @Override
+//    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+//        super.onActivityResult(requestCode, resultCode, data);
+//
+//        if ((requestCode == ADD_CARD_REQUEST_CODE || requestCode == EDIT_CARD_REQUEST_CODE) && resultCode == RESULT_OK ) {
+//
+//            CardsFragment fragment = (CardsFragment) getSupportFragmentManager().findFragmentById(R.id.fragmentContainer);
+//            if (fragment != null) {
+//                fragment.updateCardList();
+//            }
+//        }
+//    }
 
 
 }

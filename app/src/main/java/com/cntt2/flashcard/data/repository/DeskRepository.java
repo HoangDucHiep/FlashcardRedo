@@ -5,6 +5,8 @@ import android.util.Log;
 
 import com.cntt2.flashcard.App;
 import com.cntt2.flashcard.data.local.dao.DeskDao;
+import com.cntt2.flashcard.data.remote.ApiService;
+import com.cntt2.flashcard.data.remote.dto.DeskDto;
 import com.cntt2.flashcard.model.Card;
 import com.cntt2.flashcard.model.Desk;
 import com.cntt2.flashcard.model.IdMapping;
@@ -17,130 +19,105 @@ import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
 public class DeskRepository {
     private static final String TAG = "DeskRepository";
-    private final DeskDao deskDao;
-    private final CardRepository cardRepository;
-    private final LearningSessionRepository learningSessionRepository;
-    private final IdMappingRepository idMappingRepository;
-    private final SimpleDateFormat dateFormat;
+    private final ApiService apiService;
+    private final Context context;
 
     public DeskRepository(Context context) {
-        this.deskDao = new DeskDao(context);
-        this.cardRepository = App.getInstance().getCardRepository();
-        this.learningSessionRepository = App.getInstance().getLearningSessionRepository();
-        idMappingRepository = new IdMappingRepository(context);
-        dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault());
-        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        this.context = context;
+        this.apiService = App.getInstance().getApiService();
     }
 
-    public long insertDesk(Desk desk) {
-        String currentTime = dateFormat.format(new Date());
-        desk.setLastModified(currentTime);
-        if (desk.getCreatedAt() == null) {
-            desk.setCreatedAt(currentTime);
-        }
-        if (desk.getServerId() == null) {
-            desk.setSyncStatus("pending_create");
-        } else {
-            desk.setSyncStatus("synced");
-        }
-
-        long localId = deskDao.insertDesk(desk);
-        return localId;
-    }
-
-    public void updateDesk(Desk desk, boolean fromSync) {
-        Desk existingDesk = getDeskById(desk.getId());
-        if (existingDesk != null) {
-            if (!fromSync && (!existingDesk.getName().equals(desk.getName()) ||
-                    !nullSafeEquals(existingDesk.getFolderId(), desk.getFolderId()))) {
-                desk.setLastModified(dateFormat.format(new Date()));
-                desk.setSyncStatus("pending_update");
+    public void insertDesk(DeskDto deskDto, Callback<DeskDto> callback) {
+        Call<DeskDto> call = apiService.createDesk(deskDto);
+        call.enqueue(new Callback<DeskDto>() {
+            @Override
+            public void onResponse(Call<DeskDto> call, Response<DeskDto> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "Desk created - ID: " + response.body().getId());
+                    callback.onResponse(call, response);
+                } else {
+                    Log.e(TAG, "Failed to create desk: " + response.message());
+                    callback.onFailure(call, new Throwable("Failed to create desk: " + response.message()));
+                }
             }
-            deskDao.updateDesk(desk); // Luôn cập nhật vào database
-        }
-    }
 
-    public void deleteDesk(Desk desk) {
-        if (desk == null) {
-            Log.w(TAG, "Attempted to delete null desk");
-            return;
-        }
-        desk.setSyncStatus("pending_delete");
-        deskDao.updateDesk(desk);
-        Log.d(TAG, "Marked desk for deletion - ID: " + desk.getId());
-        List<Card> cards = cardRepository.getCardsByDeskId(desk.getId());
-        String serverId = idMappingRepository.getServerIdByLocalId(desk.getId(), "desk");
-        for (Card card : cards) {
-            if (serverId == null) {
-                cardRepository.deleteCardConfirmed(card.getId());
-            } else {
-                cardRepository.deleteCard(card);
+            @Override
+            public void onFailure(Call<DeskDto> call, Throwable t) {
+                Log.e(TAG, "Network error creating desk: " + t.getMessage());
+                callback.onFailure(call, t);
             }
-        }
-        List<LearningSession> sessions = learningSessionRepository.getSessionsByDeskId(desk.getId());
-        for (LearningSession session : sessions) {
-            learningSessionRepository.deleteSession(session.getId());
-        }
+        });
     }
 
-    public void deleteDeskConfirmed(int deskId) {
-        Desk desk = getDeskById(deskId);
-        if (desk != null) {
-            deskDao.deleteDesk(deskId);
-            idMappingRepository.deleteIdMapping(deskId, "desk");
-            Log.d(TAG, "Deleted desk with localId: " + deskId);
-        }
-    }
-
-    public Desk getDeskById(int deskId) {
-        Desk desk = deskDao.getDeskById(deskId);
-        if (desk == null) {
-            Log.w(TAG, "No desk found - ID: " + deskId);
-        }
-        return desk;
-    }
-
-    public List<Desk> getAllDesks() {
-        List<Desk> desks = deskDao.getAllDesks();
-        desks.removeIf(desk -> "pending_delete".equals(desk.getSyncStatus()));
-        return new ArrayList<>(desks);
-    }
-
-    public List<Desk> getDesksByFolderId(int folderId) {
-        List<Desk> allDesks = getAllDesks();
-        List<Desk> desks = new ArrayList<>();
-        for (Desk desk : allDesks) {
-            if (desk.getFolderId() != null && desk.getFolderId() == folderId) {
-                desks.add(desk);
+    public void updateDesk(String id, DeskDto deskDto, Callback<Void> callback) {
+        Call<Void> call = apiService.updateDesk(id, deskDto);
+        call.enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    Log.d(TAG, "Desk updated - ID: " + id);
+                    callback.onResponse(call, response);
+                } else {
+                    Log.e(TAG, "Failed to update desk: " + response.message());
+                    callback.onFailure(call, new Throwable("Failed to update desk: " + response.message()));
+                }
             }
-        }
-        return desks;
-    }
 
-    public List<Desk> getPendingDesks(String syncStatus) {
-        List<Desk> allDesks = deskDao.getAllDesks();
-        List<Desk> pendingDesks = new ArrayList<>();
-        for (Desk desk : allDesks) {
-            if (syncStatus.equals(desk.getSyncStatus())) {
-                pendingDesks.add(desk);
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Log.e(TAG, "Network error updating desk: " + t.getMessage());
+                callback.onFailure(call, t);
             }
-        }
-        return pendingDesks;
+        });
     }
 
-    public void updateSyncStatus(int deskId, String syncStatus) {
-        Desk desk = getDeskById(deskId);
-        if (desk != null) {
-            desk.setSyncStatus(syncStatus);
-            deskDao.updateDesk(desk);
-        }
+    public void deleteDesk(String id, Callback<Void> callback) {
+        Call<Void> call = apiService.deleteDesk(id);
+        call.enqueue(new Callback<Void>() {
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Log.e(TAG, "Network error deleting desk: " + t.getMessage());
+                callback.onFailure(call, t);
+            }
+
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    Log.d(TAG, "Desk deleted - ID: " + id);
+                    callback.onResponse(call, response);
+                } else {
+                    Log.e(TAG, "Failed to delete desk: " + response.message());
+                    callback.onFailure(call, new Throwable("Failed to delete desk: " + response.message()));
+                }
+            }
+        });
     }
 
-    private boolean nullSafeEquals(Integer a, Integer b) {
-        if (a == null && b == null) return true;
-        if (a == null || b == null) return false;
-        return a.equals(b);
+    public void getAllDesks(Callback<List<DeskDto>> callback) {
+        Call<List<DeskDto>> call = apiService.getUserDesks();
+        call.enqueue(new Callback<List<DeskDto>>() {
+            @Override
+            public void onResponse(Call<List<DeskDto>> call, Response<List<DeskDto>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "Fetched desks: " + response.body().size());
+                    callback.onResponse(call, response);
+                } else {
+                    Log.e(TAG, "Failed to fetch desks: " + response.message());
+                    callback.onFailure(call, new Throwable("Failed to fetch desks: " + response.message()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<DeskDto>> call, Throwable t) {
+                Log.e(TAG, "Network error fetching desks: " + t.getMessage());
+                callback.onFailure(call, t);
+            }
+        });
     }
 }

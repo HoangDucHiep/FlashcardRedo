@@ -16,7 +16,7 @@ import com.cntt2.flashcard.data.repository.DeskRepository;
 import com.cntt2.flashcard.data.repository.FolderRepository;
 import com.cntt2.flashcard.data.repository.LearningSessionRepository;
 import com.cntt2.flashcard.data.repository.ReviewRepository;
-import com.cntt2.flashcard.sync.SyncWorker;
+//import com.cntt2.flashcard.sync.SyncWorker;
 
 import java.util.concurrent.TimeUnit;
 

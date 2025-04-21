@@ -38,8 +38,8 @@ import androidx.work.WorkManager;
 import com.cntt2.flashcard.R;
 import com.cntt2.flashcard.auth.AuthManager;
 import com.cntt2.flashcard.data.local.DatabaseHelper;
-import com.cntt2.flashcard.sync.SyncManager;
-import com.cntt2.flashcard.sync.SyncWorker;
+//import com.cntt2.flashcard.sync.SyncManager;
+//import com.cntt2.flashcard.sync.SyncWorker;
 import com.cntt2.flashcard.ui.activities.LoginActivity;
 import com.cntt2.flashcard.utils.ConfirmDialog;
 import com.cntt2.flashcard.utils.NotificationWorker;
@@ -268,39 +268,39 @@ public class SettingsFragment extends Fragment {
         progressDialog.show();
 
         // Perform sync in a background thread
-        OneTimeWorkRequest syncWorkRequest = new OneTimeWorkRequest.Builder(SyncWorker.class).build();
-
-        WorkManager workManager = WorkManager.getInstance(requireContext());
-        workManager.enqueue(syncWorkRequest);
-
-        workManager.getWorkInfoByIdLiveData(syncWorkRequest.getId())
-                .observe(getViewLifecycleOwner(), new Observer<WorkInfo>() {
-                    @Override
-                    public void onChanged(WorkInfo workInfo) {
-                        if (workInfo != null && workInfo.getState().isFinished()) {
-                            progressDialog.dismiss();
-                            if (workInfo.getState() == WorkInfo.State.SUCCEEDED) {
-                                Toast.makeText(requireContext(), "Sync completed successfully.", Toast.LENGTH_SHORT).show();
-                                performLogout();
-                            } else {
-                                String errorMessage = workInfo.getOutputData().getString(SyncWorker.KEY_ERROR_MESSAGE);
-                                boolean isTimeout = workInfo.getOutputData().getBoolean(SyncWorker.KEY_TIMEOUT, false);
-
-                                if (isTimeout) {
-                                    Toast.makeText(requireContext(), "Sync timed out, logging out...", Toast.LENGTH_LONG).show();
-                                } else if (errorMessage != null) {
-                                    Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_LONG).show();
-                                } else {
-                                    Toast.makeText(requireContext(), "Sync failed, logging out...", Toast.LENGTH_LONG).show();
-                                }
-                                performLogout();
-                            }
-
-                            workManager.getWorkInfoByIdLiveData((syncWorkRequest.getId()))
-                                    .removeObservers(getViewLifecycleOwner());
-                        }
-                    }
-                });
+//        OneTimeWorkRequest syncWorkRequest = new OneTimeWorkRequest.Builder(SyncWorker.class).build();
+//
+//        WorkManager workManager = WorkManager.getInstance(requireContext());
+//        workManager.enqueue(syncWorkRequest);
+//
+//        workManager.getWorkInfoByIdLiveData(syncWorkRequest.getId())
+//                .observe(getViewLifecycleOwner(), new Observer<WorkInfo>() {
+//                    @Override
+//                    public void onChanged(WorkInfo workInfo) {
+//                        if (workInfo != null && workInfo.getState().isFinished()) {
+//                            progressDialog.dismiss();
+//                            if (workInfo.getState() == WorkInfo.State.SUCCEEDED) {
+//                                Toast.makeText(requireContext(), "Sync completed successfully.", Toast.LENGTH_SHORT).show();
+//                                performLogout();
+//                            } else {
+//                                String errorMessage = workInfo.getOutputData().getString(SyncWorker.KEY_ERROR_MESSAGE);
+//                                boolean isTimeout = workInfo.getOutputData().getBoolean(SyncWorker.KEY_TIMEOUT, false);
+//
+//                                if (isTimeout) {
+//                                    Toast.makeText(requireContext(), "Sync timed out, logging out...", Toast.LENGTH_LONG).show();
+//                                } else if (errorMessage != null) {
+//                                    Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_LONG).show();
+//                                } else {
+//                                    Toast.makeText(requireContext(), "Sync failed, logging out...", Toast.LENGTH_LONG).show();
+//                                }
+//                                performLogout();
+//                            }
+//
+//                            workManager.getWorkInfoByIdLiveData((syncWorkRequest.getId()))
+//                                    .removeObservers(getViewLifecycleOwner());
+//                        }
+//                    }
+//                });
     }
 
     private void performLogout() {

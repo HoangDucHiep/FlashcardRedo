@@ -180,54 +180,55 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
     }
 
     private void showChangeDeskDialog(Card card) {
-        View view = LayoutInflater.from(getContext()).inflate(R.layout.card_change_desk, null);
-        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
-        dialog.setContentView(view);
-
-        Spinner deskSpinner = view.findViewById(R.id.destDeskSpinner);
-        List<Map<Integer, String>> deskNames = new ArrayList<>();
-
-        var desks = deskRepository.getAllDesks();
-
-        for (Desk desk : desks) {
-            deskNames.add(Map.of(desk.getId(), desk.getName()));
-        }
-
-        String currentDesk = deskRepository.getDeskById(card.getDeskId()).getName();
-
-        deskNames.remove(Map.of(card.getDeskId(), currentDesk));
-        deskNames.add(0, Map.of(card.getDeskId(), currentDesk));
-
-        // take values from map
-        List<String> deskNameList = new ArrayList<>();
-        for (Map<Integer, String> desk : deskNames) {
-            for (String name : desk.values()) {
-                deskNameList.add(name);
-            }
-        }
-
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(getContext(), R.layout.spinner_item, deskNameList);
-        adapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
-        deskSpinner.setAdapter(adapter);
-
-        view.findViewById(R.id.btnCardChangeDeskSave).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                int selectedPosition = deskSpinner.getSelectedItemPosition();
-                // get key from map at selectedPosition
-                int selectedDeskId = (int) deskNames.get(selectedPosition).keySet().toArray()[0];
-
-                card.setDeskId(selectedDeskId);
-
-                cardRepository.updateCard(card, false);
-
-                updateCardList();
-                dialog.dismiss();
-
-            }
-        });
-
-        dialog.show();
+//        View view = LayoutInflater.from(getContext()).inflate(R.layout.card_change_desk, null);
+//        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
+//        dialog.setContentView(view);
+//
+//        Spinner deskSpinner = view.findViewById(R.id.destDeskSpinner);
+//        List<Map<Integer, String>> deskNames = new ArrayList<>();
+//
+//        var desks = deskRepository.getAllDesks();
+//
+//        for (Desk desk : desks) {
+//            deskNames.add(Map.of(desk.getId(), desk.getName()));
+//        }
+//
+//        String currentDesk = "";
+//                //deskRepository.getDeskById(card.getDeskId()).getName();
+//
+//        deskNames.remove(Map.of(card.getDeskId(), currentDesk));
+//        deskNames.add(0, Map.of(card.getDeskId(), currentDesk));
+//
+//        // take values from map
+//        List<String> deskNameList = new ArrayList<>();
+//        for (Map<Integer, String> desk : deskNames) {
+//            for (String name : desk.values()) {
+//                deskNameList.add(name);
+//            }
+//        }
+//
+//        ArrayAdapter<String> adapter = new ArrayAdapter<>(getContext(), R.layout.spinner_item, deskNameList);
+//        adapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
+//        deskSpinner.setAdapter(adapter);
+//
+//        view.findViewById(R.id.btnCardChangeDeskSave).setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View view) {
+//                int selectedPosition = deskSpinner.getSelectedItemPosition();
+//                // get key from map at selectedPosition
+//                int selectedDeskId = (int) deskNames.get(selectedPosition).keySet().toArray()[0];
+//
+//                card.setDeskId(selectedDeskId);
+//
+//                cardRepository.updateCard(card, false);
+//
+//                updateCardList();
+//                dialog.dismiss();
+//
+//            }
+//        });
+//
+//        dialog.show();
     }
 
     private void deleteCard(Card card, int position) {

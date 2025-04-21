@@ -261,13 +261,14 @@ public class ShowCardActivity extends AppCompatActivity {
         List<Map<Integer, String>> deskNames = new ArrayList<>();
 
         var deskRepository = App.getInstance().getDeskRepository();
-        var desks = deskRepository.getAllDesks();
+        var desks = new ArrayList<>();
 
-        for (Desk desk : desks) {
-            deskNames.add(Map.of(desk.getId(), desk.getName()));
-        }
+//        for (Desk desk : desks) {
+//            deskNames.add(Map.of(desk.getId(), desk.getName()));
+//        }
 
-        String currentDesk = deskRepository.getDeskById(card.getDeskId()).getName();
+        String currentDesk = "";
+                //= deskRepository.getDeskById(card.getDeskId()).getName();
 
         deskNames.remove(Map.of(card.getDeskId(), currentDesk));
         deskNames.add(0, Map.of(card.getDeskId(), currentDesk));
