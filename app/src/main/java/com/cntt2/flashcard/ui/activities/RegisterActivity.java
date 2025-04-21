@@ -18,12 +18,15 @@ import com.cntt2.flashcard.data.remote.dto.LoginRequest;
 import com.cntt2.flashcard.data.remote.dto.LoginResponse;
 import com.cntt2.flashcard.data.remote.dto.RegisterRequest;
 
+import org.json.JSONObject;
+
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
 public class RegisterActivity extends AppCompatActivity {
     private EditText usernameEditText;
+    private EditText emailEditText;
     private EditText passwordEditText;
     private EditText confirmPasswordEditText;
     private Button registerButton;
@@ -37,6 +40,7 @@ public class RegisterActivity extends AppCompatActivity {
 
         // Khởi tạo UI
         usernameEditText = findViewById(R.id.username_edit_text);
+        emailEditText = findViewById(R.id.email_edit_text);
         passwordEditText = findViewById(R.id.password_edit_text);
         confirmPasswordEditText = findViewById(R.id.confirm_password_edit_text);
         registerButton = findViewById(R.id.register_button);
@@ -46,10 +50,11 @@ public class RegisterActivity extends AppCompatActivity {
         // Xử lý sự kiện nhấn nút Register
         registerButton.setOnClickListener(v -> {
             String username = usernameEditText.getText().toString().trim();
+            String email = emailEditText.getText().toString().trim();
             String password = passwordEditText.getText().toString().trim();
             String confirmPassword = confirmPasswordEditText.getText().toString().trim();
 
-            if (username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
+            if (username.isEmpty() || email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
                 Toast.makeText(this, "Vui lòng điền đầy đủ thông tin", Toast.LENGTH_SHORT).show();
                 return;
             }
@@ -59,18 +64,17 @@ public class RegisterActivity extends AppCompatActivity {
                 return;
             }
 
-            register(username, password);
+            register(username, email, password);
         });
 
         // Chuyển sang màn hình Đăng nhập
         loginText.setOnClickListener(v -> {
             startActivity(new Intent(this, LoginActivity.class));
-            finish();
         });
     }
 
-    private void register(String username, String password) {
-        RegisterRequest registerRequest = new RegisterRequest(username, password);
+    private void register(String username, String email, String password) {
+        RegisterRequest registerRequest = new RegisterRequest(username, email, password);
         Call<Void> call = apiService.register(registerRequest);
 
         call.enqueue(new Callback<Void>() {
@@ -79,9 +83,19 @@ public class RegisterActivity extends AppCompatActivity {
                 if (response.isSuccessful()) {
                     Toast.makeText(RegisterActivity.this, "Đăng ký thành công! Đang đăng nhập...", Toast.LENGTH_SHORT).show();
                     // Sau khi đăng ký thành công, tự động đăng nhập
-                    loginAfterRegister(username, password);
+                    loginAfterRegister(email, password);
                 } else {
-                    Toast.makeText(RegisterActivity.this, "Đăng ký thất bại: " + response.message(), Toast.LENGTH_SHORT).show();
+                    String errorMessage = "Đăng ký thất bại";
+                    if (response.errorBody() != null) {
+                        try {
+                            String errorBody = response.errorBody().string();
+                            JSONObject jsonObject = new JSONObject(errorBody);
+                            errorMessage = jsonObject.getString("message");
+                        } catch (Exception e) {
+                            errorMessage = "Error parsing server response";
+                        }
+                    }
+                    Toast.makeText(RegisterActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
                 }
             }
 
@@ -92,8 +106,8 @@ public class RegisterActivity extends AppCompatActivity {
         });
     }
 
-    private void loginAfterRegister(String username, String password) {
-        LoginRequest loginRequest = new LoginRequest(username, password);
+    private void loginAfterRegister(String email, String password) {
+        LoginRequest loginRequest = new LoginRequest(email, password);
         Call<LoginResponse> call = apiService.login(loginRequest);
 
         call.enqueue(new Callback<LoginResponse>() {
@@ -102,14 +116,26 @@ public class RegisterActivity extends AppCompatActivity {
                 if (response.isSuccessful() && response.body() != null) {
                     LoginResponse loginResponse = response.body();
                     String token = loginResponse.getToken();
+                    String username = loginResponse.getUsername();
+                    String email = loginResponse.getEmail();
 
                     // Lưu token tạm thời vào AuthManager trước khi gọi getCurrentUser
-                    ApiClient.saveAuthData(token, username, null);
+                    ApiClient.saveAuthData(token, username, null, email);
 
                     // Gọi API để lấy thông tin user (userId)
-                    fetchUserInfo(token, username);
+                    fetchUserInfo(token, username, email);
                 } else {
-                    Toast.makeText(RegisterActivity.this, "Đăng nhập sau khi đăng ký thất bại: " + response.message(), Toast.LENGTH_SHORT).show();
+                    String errorMessage = "Đăng nhập sau khi đăng ký thất bại";
+                    if (response.errorBody() != null) {
+                        try {
+                            String errorBody = response.errorBody().string();
+                            JSONObject jsonObject = new JSONObject(errorBody);
+                            errorMessage = jsonObject.getString("message");
+                        } catch (Exception e) {
+                            errorMessage = "Error parsing server response";
+                        }
+                    }
+                    Toast.makeText(RegisterActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
                 }
             }
 
@@ -120,7 +146,7 @@ public class RegisterActivity extends AppCompatActivity {
         });
     }
 
-    private void fetchUserInfo(String token, String username) {
+    private void fetchUserInfo(String token, String username, String email) {
         Call<UserInfo> call = apiService.getCurrentUser();
         call.enqueue(new Callback<UserInfo>() {
             @Override
@@ -130,13 +156,24 @@ public class RegisterActivity extends AppCompatActivity {
                     String userId = userInfo.getId();
 
                     // Cập nhật lại thông tin đăng nhập với userId
-                    ApiClient.saveAuthData(token, username, userId);
+                    ApiClient.saveAuthData(token, username, userId, email);
 
                     // Chuyển đến SplashActivity để đồng bộ
                     startActivity(new Intent(RegisterActivity.this, SplashActivity.class));
                     finish();
                 } else {
-                    Toast.makeText(RegisterActivity.this, "Không thể lấy thông tin user: " + response.code() + " - " + response.message(), Toast.LENGTH_SHORT).show();
+                    String errorMessage = "Không thể lấy thông tin user";
+                    if (response.errorBody() != null) {
+                        try {
+                            String errorBody = response.errorBody().string();
+                            JSONObject jsonObject = new JSONObject(errorBody);
+                            errorMessage = jsonObject.getString("message");
+                        } catch (Exception e) {
+                            errorMessage = "Error parsing server response";
+                        }
+                    }
+                    Toast.makeText(RegisterActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
+
                 }
             }
 

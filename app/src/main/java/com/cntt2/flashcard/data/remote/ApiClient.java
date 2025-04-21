@@ -112,8 +112,8 @@ public class ApiClient {
         }
     }
 
-    public static void saveAuthData(String token, String username, String userId) {
-        authManager.saveAuthData(token, username, userId);
+    public static void saveAuthData(String token, String username, String userId, String email) {
+        authManager.saveAuthData(token, username, userId, email);
     }
 
     public static String getToken() {

@@ -16,6 +16,7 @@ public class AuthManager {
     private static final String KEY_TOKEN = "auth_token";
     private static final String KEY_USERNAME = "username";
     private static final String KEY_USER_ID = "user_id";
+    private static final String KEY_EMAIL = "email"; // Thêm key cho email
 
     private final SharedPreferences prefs;
     private final ApiService apiService;
@@ -25,11 +26,12 @@ public class AuthManager {
         apiService = App.getInstance().getApiService();
     }
 
-    public void saveAuthData(String token, String username, String userId) {
+    public void saveAuthData(String token, String username, String userId, String email) {
         SharedPreferences.Editor editor = prefs.edit();
         editor.putString(KEY_TOKEN, token);
         editor.putString(KEY_USERNAME, username);
         editor.putString(KEY_USER_ID, userId);
+        editor.putString(KEY_EMAIL, email);
         editor.apply();
     }
 
@@ -43,6 +45,10 @@ public class AuthManager {
 
     public String getUserId() {
         return prefs.getString(KEY_USER_ID, null);
+    }
+
+    public String getEmail() {
+        return prefs.getString(KEY_EMAIL, null);
     }
 
     public boolean isLoggedIn() {

@@ -32,6 +32,7 @@ android {
 }
 
 dependencies {
+    implementation("org.json:json:20231013")
     implementation("androidx.work:work-runtime:2.9.0")
     implementation("jp.wasabeef:richeditor-android:2.0.0")
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")

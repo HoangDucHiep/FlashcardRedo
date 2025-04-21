@@ -2,15 +2,17 @@ package com.cntt2.flashcard.data.remote;
 
 import com.cntt2.flashcard.data.remote.dto.CardDto;
 import com.cntt2.flashcard.data.remote.dto.DeskDto;
+import com.cntt2.flashcard.data.remote.dto.ForgotPasswordRequest;
 import com.cntt2.flashcard.data.remote.dto.GetFolderDto;
 import com.cntt2.flashcard.data.remote.dto.ImageDto;
 import com.cntt2.flashcard.data.remote.dto.LoginRequest;
 import com.cntt2.flashcard.data.remote.dto.LoginResponse;
 import com.cntt2.flashcard.data.remote.dto.LogoutResponse;
-import com.cntt2.flashcard.data.remote.dto.NestedFolderDto; // Thêm mới
+import com.cntt2.flashcard.data.remote.dto.NestedFolderDto;
 import com.cntt2.flashcard.data.remote.dto.PostFolderDto;
 import com.cntt2.flashcard.data.remote.dto.PublicDeskDto;
 import com.cntt2.flashcard.data.remote.dto.RegisterRequest;
+import com.cntt2.flashcard.data.remote.dto.ResetPasswordRequest;
 import com.cntt2.flashcard.data.remote.dto.ReviewDto;
 import com.cntt2.flashcard.data.remote.dto.SessionDto;
 
@@ -42,6 +44,14 @@ public interface ApiService {
     @GET("api/auth/me")
     Call<UserInfo> getCurrentUser();
 
+
+
+    @POST("api/auth/forgot-password")
+    Call<Void> forgotPassword(@Body ForgotPasswordRequest request);
+
+    @POST("api/auth/reset-password")
+    Call<Void> resetPassword(@Body ResetPasswordRequest request);
+
     // Folder endpoints
     @POST("api/folder")
     Call<GetFolderDto> createFolder(@Body PostFolderDto folder);
@@ -50,7 +60,7 @@ public interface ApiService {
     Call<List<GetFolderDto>> getUserFolders();
 
     @GET("api/folder/nested")
-    Call<List<NestedFolderDto>> getNestedFolders(); // Thêm endpoint mới
+    Call<List<NestedFolderDto>> getNestedFolders();
 
     @PUT("api/folder/{id}")
     Call<Void> updateFolder(@Path("id") String id, @Body PostFolderDto folder);
@@ -88,7 +98,7 @@ public interface ApiService {
     Call<List<CardDto>> getCardsByDeskId(@Query("deskId") String deskId);
 
     @PUT("api/card/{id}")
-    Call<CardDto> updateCard(@Path("id") String id, @Body CardDto card); // Changed from Void to CardDto
+    Call<CardDto> updateCard(@Path("id") String id, @Body CardDto card);
 
     @DELETE("api/card/{id}")
     Call<Void> deleteCard(@Path("id") String id);
@@ -137,5 +147,5 @@ public interface ApiService {
     Call<ImageDto> uploadImage(@Part MultipartBody.Part file);
 
     @DELETE("api/image/{fileName}")
-    Call<Void> deleteImage(@Path("fileName") String fileName); // Sửa từ id thành fileName
+    Call<Void> deleteImage(@Path("fileName") String fileName);
 }

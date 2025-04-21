@@ -29,18 +29,21 @@
         android:theme="@style/Theme.Flashcard"
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
-
-        <!-- SplashActivity as the launcher activity -->
+        <activity
+            android:name=".ui.activities.ResetPasswordActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.activities.ForgotPasswordActivity"
+            android:exported="false" /> <!-- SplashActivity as the launcher activity -->
         <activity
             android:name=".ui.activities.SplashActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
-
-        <!-- Other activities -->
+        </activity> <!-- Other activities -->
         <activity
             android:name=".ui.activities.LoginActivity"
             android:exported="false" />
@@ -61,9 +64,7 @@
             android:exported="false" />
         <activity
             android:name=".ui.activities.ShowCardActivity"
-            android:exported="false" />
-
-        <!-- FileProvider for sharing files -->
+            android:exported="false" /> <!-- FileProvider for sharing files -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="com.cntt2.flashcard.fileprovider"
@@ -73,7 +74,6 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-
     </application>
 
 </manifest>

@@ -17,15 +17,18 @@ import com.cntt2.flashcard.data.remote.UserInfo;
 import com.cntt2.flashcard.data.remote.dto.LoginRequest;
 import com.cntt2.flashcard.data.remote.dto.LoginResponse;
 
+import org.json.JSONObject;
+
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
 public class LoginActivity extends AppCompatActivity {
-    private EditText usernameEditText;
+    private EditText emailEditText;
     private EditText passwordEditText;
     private Button loginButton;
     private TextView registerText;
+    private TextView forgotPasswordText;
     private ApiService apiService;
 
     @Override
@@ -41,20 +44,21 @@ public class LoginActivity extends AppCompatActivity {
         }
 
         // Khởi tạo UI
-        usernameEditText = findViewById(R.id.username_edit_text);
+        emailEditText = findViewById(R.id.email_edit_text);
         passwordEditText = findViewById(R.id.password_edit_text);
         loginButton = findViewById(R.id.login_button);
         registerText = findViewById(R.id.register_text);
+        forgotPasswordText = findViewById(R.id.forgot_password_text);
         apiService = App.getInstance().getApiService();
 
         // Xử lý sự kiện nhấn nút Login
         loginButton.setOnClickListener(v -> {
-            String username = usernameEditText.getText().toString().trim();
+            String email = emailEditText.getText().toString().trim();
             String password = passwordEditText.getText().toString().trim();
-            if (!username.isEmpty() && !password.isEmpty()) {
-                login(username, password);
+            if (!email.isEmpty() && !password.isEmpty()) {
+                login(email, password);
             } else {
-                Toast.makeText(this, "Vui lòng nhập username và password", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Vui lòng nhập email và password", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -62,10 +66,14 @@ public class LoginActivity extends AppCompatActivity {
         registerText.setOnClickListener(v -> {
             startActivity(new Intent(this, RegisterActivity.class));
         });
+
+        forgotPasswordText.setOnClickListener(v -> {
+            startActivity(new Intent(this, ForgotPasswordActivity.class));
+        });
     }
 
-    private void login(String username, String password) {
-        LoginRequest loginRequest = new LoginRequest(username, password);
+    private void login(String email, String password) {
+        LoginRequest loginRequest = new LoginRequest(email, password);
         Call<LoginResponse> call = apiService.login(loginRequest);
 
         call.enqueue(new Callback<LoginResponse>() {
@@ -74,14 +82,26 @@ public class LoginActivity extends AppCompatActivity {
                 if (response.isSuccessful() && response.body() != null) {
                     LoginResponse loginResponse = response.body();
                     String token = loginResponse.getToken();
+                    String username = loginResponse.getUsername();
+                    String email = loginResponse.getEmail();
 
                     // Lưu token tạm thời vào AuthManager trước khi gọi getCurrentUser
-                    ApiClient.saveAuthData(token, username, null);
+                    ApiClient.saveAuthData(token, username, null, email);
 
                     // Gọi API để lấy thông tin user (userId)
-                    fetchUserInfo(token, username);
+                    fetchUserInfo(token, username, email);
                 } else {
-                    Toast.makeText(LoginActivity.this, "Đăng nhập thất bại: " + response.message(), Toast.LENGTH_SHORT).show();
+                    String errorMessage = "Đăng nhập thất bại";
+                    if (response.errorBody() != null) {
+                        try {
+                            String errorBody = response.errorBody().string();
+                            JSONObject jsonObject = new JSONObject(errorBody);
+                            errorMessage = jsonObject.getString("message");
+                        } catch (Exception e) {
+                            errorMessage = "Error parsing server response";
+                        }
+                    }
+                    Toast.makeText(LoginActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
                 }
             }
 
@@ -92,7 +112,7 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
-    private void fetchUserInfo(String token, String username) {
+    private void fetchUserInfo(String token, String username, String email) {
         Call<UserInfo> call = apiService.getCurrentUser();
         call.enqueue(new Callback<UserInfo>() {
             @Override
@@ -102,13 +122,23 @@ public class LoginActivity extends AppCompatActivity {
                     String userId = userInfo.getId();
 
                     // Cập nhật lại thông tin đăng nhập với userId
-                    ApiClient.saveAuthData(token, username, userId);
+                    ApiClient.saveAuthData(token, username, userId, email);
 
                     // Chuyển đến SplashActivity để đồng bộ
                     startActivity(new Intent(LoginActivity.this, SplashActivity.class));
                     finish();
                 } else {
-                    Toast.makeText(LoginActivity.this, "Không thể lấy thông tin user: " + response.code() + " - " + response.message(), Toast.LENGTH_SHORT).show();
+                    String errorMessage = "Không thể lấy thông tin user";
+                    if (response.errorBody() != null) {
+                        try {
+                            String errorBody = response.errorBody().string();
+                            JSONObject jsonObject = new JSONObject(errorBody);
+                            errorMessage = jsonObject.getString("message");
+                        } catch (Exception e) {
+                            errorMessage = "Error parsing server response";
+                        }
+                    }
+                    Toast.makeText(LoginActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
                 }
             }
 
