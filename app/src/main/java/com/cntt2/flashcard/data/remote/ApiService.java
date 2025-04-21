@@ -7,6 +7,7 @@ import com.cntt2.flashcard.data.remote.dto.ImageDto;
 import com.cntt2.flashcard.data.remote.dto.LoginRequest;
 import com.cntt2.flashcard.data.remote.dto.LoginResponse;
 import com.cntt2.flashcard.data.remote.dto.LogoutResponse;
+import com.cntt2.flashcard.data.remote.dto.NestedFolderDto; // Thêm mới
 import com.cntt2.flashcard.data.remote.dto.PostFolderDto;
 import com.cntt2.flashcard.data.remote.dto.PublicDeskDto;
 import com.cntt2.flashcard.data.remote.dto.RegisterRequest;
@@ -47,6 +48,9 @@ public interface ApiService {
 
     @GET("api/folder")
     Call<List<GetFolderDto>> getUserFolders();
+
+    @GET("api/folder/nested")
+    Call<List<NestedFolderDto>> getNestedFolders(); // Thêm endpoint mới
 
     @PUT("api/folder/{id}")
     Call<Void> updateFolder(@Path("id") String id, @Body PostFolderDto folder);
@@ -120,6 +124,6 @@ public interface ApiService {
     @POST("api/image/upload")
     Call<ImageDto> uploadImage(@Part MultipartBody.Part file);
 
-    @DELETE("api/image/{id}")
-    Call<Void> deleteImage(@Path("id") String id);
+    @DELETE("api/image/{fileName}")
+    Call<Void> deleteImage(@Path("fileName") String fileName); // Sửa từ id thành fileName
 }

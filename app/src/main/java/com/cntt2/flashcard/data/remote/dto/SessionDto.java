@@ -1,30 +1,36 @@
 package com.cntt2.flashcard.data.remote.dto;
 
+import com.google.gson.annotations.SerializedName;
+
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Locale;
 import java.util.TimeZone;
 
 public class SessionDto {
+    @SerializedName("id")
     private String id;
+
+    @SerializedName("deskId")
     private String deskId;
-    private String startTime; // Format: yyyy-MM-dd'T'HH:mm:ss.SSS
-    private String endTime;   // Format: yyyy-MM-dd'T'HH:mm:ss.SSS, nullable
+
+    @SerializedName("startTime")
+    private String startTime;
+
+    @SerializedName("endTime")
+    private String endTime;
+
+    @SerializedName("cardsStudied")
     private int cardsStudied;
+
+    @SerializedName("performance")
     private double performance;
 
-    public String getLastModified() {
-        return lastModified;
-    }
-
-    public void setLastModified(String lastModified) {
-        this.lastModified = lastModified;
-    }
-
-    private String lastModified; // Format: yyyy-MM-dd'T'HH:mm:ss.SSS
+    @SerializedName("lastModified")
+    private String lastModified;
 
     private static final SimpleDateFormat dateFormat = new SimpleDateFormat(
-            "yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault());
+            "yyyy-MM-dd'T'HH:mm:ss.SSSSSSS'Z'", Locale.getDefault()); // Cập nhật định dạng
 
     static {
         dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));

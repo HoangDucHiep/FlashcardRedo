@@ -1,16 +1,31 @@
 package com.cntt2.flashcard.data.remote.dto;
 
+import com.google.gson.annotations.SerializedName;
+
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
 public class CardDto {
+    @SerializedName("id")
     private String id;
+
+    @SerializedName("deskId")
     private String deskId;
+
+    @SerializedName("front")
     private String front;
+
+    @SerializedName("back")
     private String back;
-    private List<String> imagePaths = new ArrayList<>(); // Thêm trường ImagePaths
+
+    @SerializedName("imagePaths")
+    private List<String> imagePaths = new ArrayList<>();
+
+    @SerializedName("createdAt")
     private Date createdAt;
+
+    @SerializedName("lastModified")
     private Date lastModified;
 
     public String getId() { return id; }

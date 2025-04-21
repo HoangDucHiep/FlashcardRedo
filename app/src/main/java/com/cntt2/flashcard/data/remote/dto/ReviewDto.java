@@ -1,12 +1,27 @@
 package com.cntt2.flashcard.data.remote.dto;
 
+import com.google.gson.annotations.SerializedName;
+
 public class ReviewDto {
-    private String id; // Nullable cho POST
+    @SerializedName("id")
+    private String id;
+
+    @SerializedName("cardId")
     private String cardId;
+
+    @SerializedName("ease")
     private double ease;
+
+    @SerializedName("interval")
     private int interval;
+
+    @SerializedName("repetition")
     private int repetition;
+
+    @SerializedName("nextReviewDate")
     private String nextReviewDate;
+
+    @SerializedName("lastReviewed")
     private String lastReviewed;
 
     public String getId() { return id; }
