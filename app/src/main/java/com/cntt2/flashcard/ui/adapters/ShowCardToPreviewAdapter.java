@@ -9,15 +9,15 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.cntt2.flashcard.R;
-import com.cntt2.flashcard.model.Card;
+import com.cntt2.flashcard.data.remote.dto.CardDto;
 
 import java.util.List;
 
 public class ShowCardToPreviewAdapter extends RecyclerView.Adapter<ShowCardToPreviewAdapter.CardViewHolder> {
 
-    private final List<Card> cardList;
+    private final List<CardDto> cardList;
 
-    public ShowCardToPreviewAdapter(List<Card> cardList) {
+    public ShowCardToPreviewAdapter(List<CardDto> cardList) {
         this.cardList = cardList;
     }
 
@@ -31,13 +31,15 @@ public class ShowCardToPreviewAdapter extends RecyclerView.Adapter<ShowCardToPre
 
     @Override
     public void onBindViewHolder(@NonNull CardViewHolder holder, int position) {
-        Card card = cardList.get(position);
+        CardDto card = cardList.get(position);
 
         String front = card.getFront() != null ? card.getFront() : "";
         String back = card.getBack() != null ? card.getBack() : "";
 
-        holder.webFront.loadDataWithBaseURL(null, wrapHtml(front), "text/html", "UTF-8", null);
-        holder.webBack.loadDataWithBaseURL(null, wrapHtml(back), "text/html", "UTF-8", null);
+        String baseUrl = "http://10.0.2.2:5029";
+
+        holder.webFront.loadDataWithBaseURL(baseUrl, wrapHtml(front), "text/html", "UTF-8", null);
+        holder.webBack.loadDataWithBaseURL(baseUrl, wrapHtml(back), "text/html", "UTF-8", null);
 
         holder.webFront.setVisibility(View.VISIBLE);
         holder.webBack.setVisibility(View.GONE);
@@ -48,10 +50,9 @@ public class ShowCardToPreviewAdapter extends RecyclerView.Adapter<ShowCardToPre
         return cardList.size();
     }
 
-    // Hàm gói nội dung HTML
     private String wrapHtml(String content) {
         return "<html><head><meta name='viewport' content='width=device-width, initial-scale=1.0' />"
-                + "<style>body{font-size:16px;text-align:center;word-wrap:break-word;max-width:100%; margin: 0 auto; max-height: 2000px; overflow-y: scroll;} img{max-width:100%; height:auto;}</style></head><body>"
+                + "<style>body{ background-color: rgb(67, 78, 170); color:white; font-size:16px; text-align:center; word-wrap:break-word; max-width:100%; margin: 0 auto; max-height: 2000px; overflow-y: scroll;} img{max-width:100%; height:auto;}</style></head><body>"
                 + content + "</body></html>";
     }
 

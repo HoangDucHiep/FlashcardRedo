@@ -3,123 +3,107 @@ package com.cntt2.flashcard.data.repository;
 import android.content.Context;
 import android.util.Log;
 
-import com.cntt2.flashcard.data.local.dao.LearningSessionDao;
-import com.cntt2.flashcard.model.IdMapping;
-import com.cntt2.flashcard.model.LearningSession;
+import com.cntt2.flashcard.App;
+import com.cntt2.flashcard.data.remote.ApiService;
+import com.cntt2.flashcard.data.remote.dto.SessionDto;
 
 import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
 public class LearningSessionRepository {
     private static final String TAG = "LearningSessionRepository";
-    private final LearningSessionDao sessionDao;
-    private final IdMappingRepository idMappingRepository;
+    private final ApiService apiService;
     private final SimpleDateFormat dateFormat;
 
     public LearningSessionRepository(Context context) {
-        sessionDao = new LearningSessionDao(context);
-        idMappingRepository = new IdMappingRepository(context);
+        this.apiService = App.getInstance().getApiService();
         dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault());
         dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
     }
 
-    public long insertSession(LearningSession session) {
-        validateSession(session);
-        String currentTime = dateFormat.format(new Date());
-        session.setLastModified(currentTime);
-        if (session.getServerId() == null) {
-            session.setSyncStatus("pending_create");
-        } else {
-            session.setSyncStatus("synced");
-        }
+    public void insertSession(SessionDto sessionDto, Callback<SessionDto> callback) {
+        validateSession(sessionDto);
+        Call<SessionDto> call = apiService.createSession(sessionDto);
+        call.enqueue(new Callback<SessionDto>() {
+            @Override
+            public void onResponse(Call<SessionDto> call, Response<SessionDto> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "Session created - ID: " + response.body().getId());
+                    callback.onResponse(call, response);
+                } else {
+                    Log.e(TAG, "Failed to create session: " + response.message());
+                    callback.onFailure(call, new Throwable("Failed to create session: " + response.message()));
+                }
+            }
 
-        long localId = sessionDao.insertLearningSession(session);
-        if (session.getServerId() != null) {
-            idMappingRepository.insertIdMapping(new IdMapping((int) localId, session.getServerId(), "session"));
-        }
-        Log.d(TAG, "Inserted session with localId: " + localId);
-        return localId;
+            @Override
+            public void onFailure(Call<SessionDto> call, Throwable t) {
+                Log.e(TAG, "Network error creating session: " + t.getMessage());
+                callback.onFailure(call, t);
+            }
+        });
     }
 
-    public boolean updateSession(LearningSession session, boolean fromSync) {
-        validateSession(session);
-        LearningSession existingSession = getSessionById(session.getId());
-        if (existingSession == null) {
-            Log.w(TAG, "Session not found for update - ID: " + session.getId());
-            return false;
+    public void getSessionsByDeskId(String deskId, Callback<List<SessionDto>> callback) {
+        if (deskId == null || deskId.isEmpty()) {
+            callback.onFailure(null, new IllegalArgumentException("Desk ID cannot be null or empty"));
+            return;
         }
+        Call<List<SessionDto>> call = apiService.getSessionsByDeskId(deskId);
+        call.enqueue(new Callback<List<SessionDto>>() {
+            @Override
+            public void onResponse(Call<List<SessionDto>> call, Response<List<SessionDto>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "Fetched sessions: " + response.body().size());
+                    callback.onResponse(call, response);
+                } else {
+                    Log.e(TAG, "Failed to fetch sessions: " + response.message());
+                    callback.onFailure(call, new Throwable("Failed to fetch sessions: " + response.message()));
+                }
+            }
 
-        if (!fromSync && (!existingSession.getStartTime().equals(session.getStartTime()) ||
-                !nullSafeEquals(existingSession.getEndTime(), session.getEndTime()) ||
-                existingSession.getCardsStudied() != session.getCardsStudied() ||
-                existingSession.getPerformance() != session.getPerformance())) {
-            session.setLastModified(dateFormat.format(new Date()));
-            session.setSyncStatus("pending_update");
+            @Override
+            public void onFailure(Call<List<SessionDto>> call, Throwable t) {
+                Log.e(TAG, "Network error fetching sessions: " + t.getMessage());
+                callback.onFailure(call, t);
+            }
+        });
+    }
+
+    public void deleteAllSessionsByDeskId(String deskId, Callback<Void> callback) {
+        if (deskId == null || deskId.isEmpty()) {
+            callback.onFailure(null, new IllegalArgumentException("Desk ID cannot be null or empty"));
+            return;
         }
-        sessionDao.updateLearningSession(session);
-        Log.d(TAG, "Updated session with localId: " + session.getId());
-        return true;
+        Call<Void> call = apiService.deleteAllSessionsByDeskId(deskId);
+        call.enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    Log.d(TAG, "All sessions deleted for deskId: " + deskId);
+                    callback.onResponse(call, response);
+                } else {
+                    Log.e(TAG, "Failed to delete sessions: " + response.message());
+                    callback.onFailure(call, new Throwable("Failed to delete sessions: " + response.message()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Log.e(TAG, "Network error deleting sessions: " + t.getMessage());
+                callback.onFailure(call, t);
+            }
+        });
     }
 
-    public boolean deleteSession(int sessionId) {
-        LearningSession session = getSessionById(sessionId);
-        if (session == null) {
-            Log.w(TAG, "Session not found for deletion - ID: " + sessionId);
-            return false;
-        }
-        session.setSyncStatus("pending_delete");
-        session.setLastModified(dateFormat.format(new Date()));
-        sessionDao.updateLearningSession(session);
-        Log.d(TAG, "Marked session for deletion - ID: " + sessionId);
-        return true;
-    }
-
-    public boolean deleteSessionConfirmed(int sessionId) {
-        LearningSession session = getSessionById(sessionId);
-        if (session == null) {
-            Log.w(TAG, "Session not found for confirmed deletion - ID: " + sessionId);
-            return false;
-        }
-        int rowsAffected = sessionDao.deleteLearningSession(sessionId);
-        if (rowsAffected > 0) {
-            idMappingRepository.deleteIdMapping(sessionId, "session");
-            Log.d(TAG, "Confirmed deletion of session - ID: " + sessionId);
-            return true;
-        }
-        Log.w(TAG, "Failed to delete session - ID: " + sessionId);
-        return false;
-    }
-
-    public LearningSession getSessionById(int id) {
-        return sessionDao.getSessionById(id);
-    }
-
-    public List<LearningSession> getSessionsByDeskId(int deskId) {
-        List<LearningSession> sessions = sessionDao.getSessionsByDeskId(deskId);
-        sessions.removeIf(session -> "pending_delete".equals(session.getSyncStatus()));
-        return sessions;
-    }
-
-    public List<LearningSession> getPendingSessions(String syncStatus) {
-        return sessionDao.getPendingSessions(syncStatus);
-    }
-
-    public boolean updateSyncStatus(int localId, String syncStatus) {
-        LearningSession session = getSessionById(localId);
-        if (session == null) {
-            Log.w(TAG, "Session not found for sync status update - ID: " + localId);
-            return false;
-        }
-        sessionDao.updateSyncStatus(localId, syncStatus);
-        Log.d(TAG, "Updated sync status for session - ID: " + localId + ", Status: " + syncStatus);
-        return true;
-    }
-
-    private void validateSession(LearningSession session) {
-        if (session.getDeskId() <= 0) {
+    private void validateSession(SessionDto session) {
+        if (session.getDeskId() == null || session.getDeskId().isEmpty()) {
             throw new IllegalArgumentException("Invalid deskId: " + session.getDeskId());
         }
         if (session.getStartTime() == null) {
@@ -136,14 +120,8 @@ public class LearningSessionRepository {
         if (session.getCardsStudied() < 0) {
             throw new IllegalArgumentException("Cards studied cannot be negative");
         }
-        if (session.getPerformance() < 0 || session.getPerformance() > 100) {
-            throw new IllegalArgumentException("Performance must be between 0 and 100");
+        if (session.getPerformance() < 0 || session.getPerformance() > 1) {
+            throw new IllegalArgumentException("Performance must be between 0 and 1");
         }
-    }
-
-    private boolean nullSafeEquals(String a, String b) {
-        if (a == null && b == null) return true;
-        if (a == null || b == null) return false;
-        return a.equals(b);
     }
 }

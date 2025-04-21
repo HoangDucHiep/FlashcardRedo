@@ -72,14 +72,14 @@ public class ListCardActivity extends AppCompatActivity {
         });
 
         btnThongKe.setOnClickListener(view -> {
-//            resetButtonBackground();
-//            btnThongKe.setBackgroundResource(R.drawable.toggle_button_background);
-//
-//            StatisticsFragment statisticsFragment = StatisticsFragment.newInstance(deskId);
-//            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-//            transaction.replace(R.id.fragmentContainer, statisticsFragment);
-//            transaction.commit();
-//            btnAdd.setVisibility(View.GONE);
+            resetButtonBackground();
+            btnThongKe.setBackgroundResource(R.drawable.toggle_button_background);
+
+            StatisticsFragment statisticsFragment = StatisticsFragment.newInstance(deskId);
+            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+            transaction.replace(R.id.fragmentContainer, statisticsFragment);
+            transaction.commit();
+            btnAdd.setVisibility(View.GONE);
         });
 
         if (savedInstanceState == null) {

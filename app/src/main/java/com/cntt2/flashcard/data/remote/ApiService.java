@@ -119,6 +119,9 @@ public interface ApiService {
     @GET("api/session/desk/{deskId}")
     Call<List<SessionDto>> getSessionsByDeskId(@Path("deskId") String deskId);
 
+    @DELETE("api/session/desk/{deskId}")
+    Call<Void> deleteAllSessionsByDeskId(@Path("deskId") String deskId);
+
     @PUT("api/session/{id}")
     Call<Void> updateSession(@Path("id") String id, @Body SessionDto session);
 

@@ -30,7 +30,7 @@ public class SessionDto {
     private String lastModified;
 
     private static final SimpleDateFormat dateFormat = new SimpleDateFormat(
-            "yyyy-MM-dd'T'HH:mm:ss.SSSSSSS'Z'", Locale.getDefault()); // Cập nhật định dạng
+            "yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault());
 
     static {
         dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
@@ -74,8 +74,8 @@ public class SessionDto {
 
     public double getPerformance() { return performance; }
     public void setPerformance(double performance) {
-        if (performance < 0 || performance > 100) {
-            throw new IllegalArgumentException("Performance must be between 0 and 100");
+        if (performance < 0 || performance > 1) {
+            throw new IllegalArgumentException("Performance must be between 0 and 1");
         }
         this.performance = performance;
     }
@@ -85,7 +85,7 @@ public class SessionDto {
             dateFormat.parse(dateStr);
         } catch (ParseException e) {
             throw new IllegalArgumentException("Invalid date format: " + dateStr +
-                    ". Expected yyyy-MM-dd'T'HH:mm:ss.SSS");
+                    ". Expected yyyy-MM-dd'T'HH:mm:ss.SSS", e);
         }
     }
 }

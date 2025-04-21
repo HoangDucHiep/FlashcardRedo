@@ -112,7 +112,7 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
         });
 
         btnStartLearnSession.setOnClickListener(v -> {
-            if (cardList.size() > 0) {
+            if (!cardList.isEmpty()) {
                 Intent intent = new Intent(getContext(), StudyActivity.class);
                 intent.putExtra("deskId", deskId);
                 startActivityForResult(intent, REQUEST_START_A_LEARNING_SESSION);

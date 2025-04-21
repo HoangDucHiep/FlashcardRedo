@@ -9,15 +9,17 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.cntt2.flashcard.R;
+import com.cntt2.flashcard.data.remote.dto.CardDto;
 import com.cntt2.flashcard.model.Card;
 
 import java.util.List;
 
 public class ShowStudyCardToLearnAdapter extends RecyclerView.Adapter<ShowStudyCardToLearnAdapter.CardViewHolder> {
 
-    private final List<Card> cardList;
+    private final List<CardDto> cardList;
+    private static final String BASE_URL = "http://10.0.2.2:5029";
 
-    public ShowStudyCardToLearnAdapter(List<Card> cardList) {
+    public ShowStudyCardToLearnAdapter(List<CardDto> cardList) {
         this.cardList = cardList;
     }
 
@@ -31,13 +33,13 @@ public class ShowStudyCardToLearnAdapter extends RecyclerView.Adapter<ShowStudyC
 
     @Override
     public void onBindViewHolder(@NonNull CardViewHolder holder, int position) {
-        Card card = cardList.get(position);
+        CardDto card = cardList.get(position);
 
         String front = card.getFront() != null ? card.getFront() : "";
         String back = card.getBack() != null ? card.getBack() : "";
 
-        holder.webFront.loadDataWithBaseURL(null, wrapHtml(front), "text/html", "UTF-8", null);
-        holder.webBack.loadDataWithBaseURL(null, wrapHtml(back), "text/html", "UTF-8", null);
+        holder.webFront.loadDataWithBaseURL(BASE_URL, wrapHtml(front), "text/html", "UTF-8", null);
+        holder.webBack.loadDataWithBaseURL(BASE_URL, wrapHtml(back), "text/html", "UTF-8", null);
 
         holder.webFront.setVisibility(View.VISIBLE);
         holder.webBack.setVisibility(View.GONE);
