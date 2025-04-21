@@ -301,6 +301,8 @@ public class SettingsFragment extends Fragment {
 //                        }
 //                    }
 //                });
+
+        performLogout();
     }
 
     private void performLogout() {

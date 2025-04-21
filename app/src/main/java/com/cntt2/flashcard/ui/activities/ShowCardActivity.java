@@ -68,7 +68,8 @@ public class ShowCardActivity extends AppCompatActivity {
         int position = intent.getIntExtra("startPosition", 0);
 
         // Tạo danh sách thẻ
-        cardList = App.getInstance().getCardRepository().getCardsByDeskId(deskId);
+        //cardList = App.getInstance().getCardRepository().getCardsByDeskId(deskId);
+
 
         cardList.forEach(card -> {
             card.setFront(wrapHtml(card.getFront()));
@@ -233,7 +234,7 @@ public class ShowCardActivity extends AppCompatActivity {
 
     // Xóa Card
     private void deleteCard(Card card, int position) {
-        App.getInstance().getCardRepository().deleteCard(card);
+        //App.getInstance().getCardRepository().deleteCard(card);
         cardList.remove(position);
         cardAdapter.notifyItemRemoved(position);
         totalItem = cardList.size();
@@ -290,7 +291,7 @@ public class ShowCardActivity extends AppCompatActivity {
             int selectedDeskId = (int) deskNames.get(selectedPosition).keySet().toArray()[0];
 
             card.setDeskId(selectedDeskId);
-            App.getInstance().getCardRepository().updateCard(card, false);
+            //App.getInstance().getCardRepository().updateCard(card, false);
 
             Toast.makeText(this, "Đã di chuyển thẻ", Toast.LENGTH_SHORT).show();
             dialog.dismiss();
@@ -304,7 +305,7 @@ public class ShowCardActivity extends AppCompatActivity {
 
     // Cập nhật danh sách thẻ sau khi chỉnh sửa hoặc di chuyển
     private void updateCardList() {
-        cardList = App.getInstance().getCardRepository().getCardsByDeskId(deskId);
+        //cardList = App.getInstance().getCardRepository().getCardsByDeskId(deskId);
         cardAdapter = new ShowCardToPreviewAdapter(cardList);
         viewPagerStudyCard.setAdapter(cardAdapter);
         totalItem = cardList.size();

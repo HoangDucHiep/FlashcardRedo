@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -22,8 +23,8 @@ import androidx.core.content.FileProvider;
 
 import com.cntt2.flashcard.App;
 import com.cntt2.flashcard.R;
+import com.cntt2.flashcard.data.remote.dto.CardDto;
 import com.cntt2.flashcard.data.repository.CardRepository;
-import com.cntt2.flashcard.model.Card;
 import com.cntt2.flashcard.utils.ImageManager;
 
 import java.io.File;
@@ -37,9 +38,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import android.Manifest;
+import java.util.TimeZone;
 
 import jp.wasabeef.richeditor.RichEditor;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import android.Manifest;
 
 public class AddCardActivity extends AppCompatActivity {
 
@@ -48,34 +53,31 @@ public class AddCardActivity extends AppCompatActivity {
     private Button btnBackSide;
     private Button btnBack;
     private Button btnSave;
+    private ProgressBar progressBar;
 
     private CardRepository cardRepository = App.getInstance().getCardRepository();
 
-    private int deskId;
+    private String deskId;
+    private boolean isFrontSide = true;
+    private String frontText = "<style>img { max-width: 100%; height: auto; }</style>";
+    private String backText = "<style>img { max-width: 100%; height: auto; }</style>";
 
-    private boolean isFrontSide = true; // Track if we're editing the front or back
-    private String frontText = "";
-    private String backText = "";
-
-    // Separate history for front
     private int frontHistoryIndex = -1;
     private List<String> frontHtmlHistory = new ArrayList<>();
-
-    // Separate history for back
     private int backHistoryIndex = -1;
     private List<String> backHtmlHistory = new ArrayList<>();
 
-    private Set<String> initialImages; // Lưu các ảnh ban đầu
-    private Set<String> sessionImages; // Lưu tất cả ảnh được thêm trong phiên
+    private Set<String> initialImages;
+    private Set<String> sessionImages;
     private Uri photoUri;
     private File imagesDir;
 
-    // for update
     private boolean isEditMode = false;
-    private int cardId = -1;
-    private Card existingCard;
+    private String cardId;
 
     private static final int REQUEST_PERMISSIONS = 100;
+    private static final String BASE_URL = "http://10.0.2.2:5029/";
+    private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault());
 
     private void checkPermissions() {
         List<String> permissionsNeeded = new ArrayList<>();
@@ -138,14 +140,13 @@ public class AddCardActivity extends AppCompatActivity {
                     try {
                         Uri contentUri = photoUri;
                         Log.d("ImageHandling", "Photo URI: " + contentUri);
-                        // Lấy tên file từ photoUri đã tạo trước đó
-                        String fileName = contentUri.getLastPathSegment(); // ví dụ: img_xxx.jpg
+                        String fileName = contentUri.getLastPathSegment();
                         File photoFile = new File(imagesDir, fileName);
-                        sessionImages.add(photoFile.getAbsolutePath()); // Đường dẫn thực: /data/user/0/.../images/img_xxx.jpg
+                        sessionImages.add(photoFile.getAbsolutePath());
                         edtCardContent.insertImage(contentUri.toString(), "Photo");
                         String html = edtCardContent.getHtml();
                         updateHistory(html);
-                        Log.d("ImageHandling", "Successfully added photo: " + contentUri);
+                        Log.d("ImageHandling", "Successfully added photo: " + contentUri + ", Absolute path: " + photoFile.getAbsolutePath());
                     } catch (Exception e) {
                         Log.e("AddCardActivity", "Error processing camera image: " + e.getMessage(), e);
                         Toast.makeText(AddCardActivity.this, "Failed to process photo", Toast.LENGTH_SHORT).show();
@@ -153,8 +154,7 @@ public class AddCardActivity extends AppCompatActivity {
                 } else {
                     Log.d("ImageHandling", "User cancelled taking photo");
                 }
-            }
-    );
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -168,7 +168,9 @@ public class AddCardActivity extends AppCompatActivity {
         btnBackSide = findViewById(R.id.btnBackSide);
         btnBack = findViewById(R.id.btnBack);
         btnSave = findViewById(R.id.btnSave);
+        progressBar = findViewById(R.id.progressBar);
 
+        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
         initialImages = new HashSet<>();
         sessionImages = new HashSet<>();
 
@@ -177,29 +179,21 @@ public class AddCardActivity extends AppCompatActivity {
             imagesDir.mkdirs();
         }
 
-        File photoFile = new File(imagesDir, "img_" + System.currentTimeMillis() + ".jpg");
-        photoUri = FileProvider.getUriForFile(this,
-                "com.cntt2.flashcard.fileprovider", photoFile);
-
         Intent intent = getIntent();
         isEditMode = intent.getBooleanExtra("isEditMode", false);
-        if (isEditMode) {
-            cardId = intent.getIntExtra("cardId", -1);
-            if (cardId != -1) {
-                existingCard = cardRepository.getCardById(cardId);
-                if (existingCard != null) {
-                    frontText = existingCard.getFront();
-                    backText = existingCard.getBack();
-                    deskId = existingCard.getDeskId();
-                    updateFrontHistory(frontText);
-                    updateBackHistory(backText);
-                    edtCardContent.setHtml(frontText);
-                    initialImages = ImageManager.extractImagePathsFromHtml(frontText + backText, this);
-                }
-            }
+        cardId = intent.getStringExtra("cardId");
+        deskId = intent.getStringExtra("deskId");
+
+        if (deskId == null || deskId.isEmpty()) {
+            Toast.makeText(this, "Invalid desk ID", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
+        if (isEditMode && cardId != null) {
+            loadCardData();
         } else {
-            deskId = intent.getIntExtra("deskId", -1);
-            updateFrontHistory(""); // Khởi tạo lịch sử cho front
+            updateFrontHistory("");
         }
 
         updateToggleState();
@@ -375,12 +369,11 @@ public class AddCardActivity extends AppCompatActivity {
                         destFile
                 );
                 runOnUiThread(() -> {
-                    // Lưu đường dẫn file vào sessionImages
                     sessionImages.add(destFile.getAbsolutePath());
                     edtCardContent.insertImage(contentUri.toString(), "Gallery Image");
                     String html = edtCardContent.getHtml();
                     updateHistory(html);
-                    Log.d("ImageHandling", "Successfully added gallery image: " + contentUri);
+                    Log.d("ImageHandling", "Successfully added gallery image: " + contentUri + ", Absolute path: " + destFile.getAbsolutePath());
                 });
             } catch (IOException e) {
                 Log.e("AddCardActivity", "Error handling image: " + e.getMessage());
@@ -413,31 +406,56 @@ public class AddCardActivity extends AppCompatActivity {
         backHistoryIndex++;
     }
 
-    private void manageImageFiles(String combinedHtml) {
-        try {
-            // Lấy danh sách ảnh đang được sử dụng trong HTML hiện tại
-            Set<String> usedImages = ImageManager.extractImagePathsFromHtml(combinedHtml, this);
-            Log.d("ImageCleanup", "Used images: " + usedImages);
+    private String convertRelativeToAbsoluteUrls(String html) {
+        if (html == null) return null;
+        // Replace relative URLs (e.g., /Uploads/img_...) with absolute URLs
+        return html.replaceAll("(<img[^>]+src=\")/Uploads/([^\"]+)(\")", "$1" + BASE_URL + "Uploads/$2$3");
+    }
 
-            // Lấy danh sách tất cả ảnh đã thêm trong phiên từ sessionImages
-            Set<String> allImagesAddedInSession = new HashSet<>(sessionImages);
-            Log.d("ImageCleanup", "All images added in session: " + allImagesAddedInSession);
+    private String convertAbsoluteToRelativeUrls(String html) {
+        if (html == null) return null;
+        // Replace absolute URLs (e.g., http://10.0.2.2:5029/Uploads/img_...) with relative URLs
+        return html.replaceAll("(<img[^>]+src=\")" + BASE_URL.replace(".", "\\.") + "Uploads/([^\"]+)(\")", "$1/Uploads/$2$3");
+    }
 
-            // Loại bỏ các ảnh đã có từ ban đầu
-            allImagesAddedInSession.removeAll(initialImages);
-            Log.d("ImageCleanup", "Images added in session after removing initial: " + allImagesAddedInSession);
+    private void loadCardData() {
+        progressBar.setVisibility(View.VISIBLE);
+        cardRepository.getCardsByDeskId(deskId, new Callback<List<CardDto>>() {
+            @Override
+            public void onResponse(Call<List<CardDto>> call, Response<List<CardDto>> response) {
+                progressBar.setVisibility(View.GONE);
+                if (response.isSuccessful() && response.body() != null) {
+                    CardDto card = response.body().stream()
+                            .filter(c -> c.getId().equals(cardId))
+                            .findFirst()
+                            .orElse(null);
+                    if (card != null) {
+                        frontText = convertRelativeToAbsoluteUrls(card.getFront());
+                        backText = convertRelativeToAbsoluteUrls(card.getBack());
+                        updateFrontHistory(frontText);
+                        updateBackHistory(backText);
+                        edtCardContent.setHtml(frontText);
+                        initialImages = ImageManager.extractImagePathsFromHtml(frontText + backText, AddCardActivity.this);
+                        Log.d("AddCardActivity", "Loaded card front: " + frontText);
+                        Log.d("AddCardActivity", "Loaded card back: " + backText);
+                        Log.d("AddCardActivity", "Initial images: " + initialImages);
+                    } else {
+                        Toast.makeText(AddCardActivity.this, "Card not found", Toast.LENGTH_SHORT).show();
+                        finish();
+                    }
+                } else {
+                    Toast.makeText(AddCardActivity.this, "Failed to load card", Toast.LENGTH_SHORT).show();
+                    finish();
+                }
+            }
 
-            // Xác định các ảnh không còn được sử dụng
-            Set<String> unusedImages = new HashSet<>(allImagesAddedInSession);
-            unusedImages.removeAll(usedImages);
-            Log.d("ImageCleanup", "Unused images to delete: " + unusedImages);
-
-            // Xóa các ảnh không còn được sử dụng
-            ImageManager.deleteImageFiles(unusedImages, this);
-            Log.d("ImageCleanup", "Deleted " + unusedImages.size() + " unused images");
-        } catch (Exception e) {
-            Log.e("ImageCleanup", "Error cleaning up images: " + e.getMessage(), e);
-        }
+            @Override
+            public void onFailure(Call<List<CardDto>> call, Throwable t) {
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(AddCardActivity.this, "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        });
     }
 
     private void saveCard() {
@@ -449,35 +467,99 @@ public class AddCardActivity extends AppCompatActivity {
             updateBackHistory(backText);
         }
 
-        if (frontText.isEmpty() && backText.isEmpty()) {
+        if (frontText.isEmpty() || backText.isEmpty()) {
             Toast.makeText(this, "Card content cannot be empty", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        String currentDate = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault()).format(new Date());
+        progressBar.setVisibility(View.VISIBLE);
+        btnSave.setEnabled(false);
 
-        if (isEditMode) {
-            if (existingCard != null) {
-                existingCard.setFront(frontText);
-                existingCard.setBack(backText);
-                existingCard.setCreatedAt(currentDate);
-                cardRepository.updateCard(existingCard, false);
-                manageImageFiles(frontText + backText);
-                Toast.makeText(this, "Card updated successfully", Toast.LENGTH_SHORT).show();
-            }
+        // Convert absolute URLs to relative URLs before saving
+        String frontTextRelative = convertAbsoluteToRelativeUrls(frontText);
+        String backTextRelative = convertAbsoluteToRelativeUrls(backText);
+        Log.d("AddCardActivity", "Saving card with front (relative): " + frontTextRelative);
+        Log.d("AddCardActivity", "Saving card with back (relative): " + backTextRelative);
+
+        CardDto cardDto = new CardDto();
+        cardDto.setDeskId(deskId);
+        cardDto.setFront(frontTextRelative);
+        cardDto.setBack(backTextRelative);
+        cardDto.setCreatedAt(new Date());
+        cardDto.setLastModified(new Date());
+
+        List<String> localImagePaths = new ArrayList<>(sessionImages);
+        Log.d("AddCardActivity", "Saving card with local image paths: " + localImagePaths);
+
+        if (isEditMode && cardId != null) {
+            cardDto.setId(cardId);
+            cardRepository.updateCard(cardId, cardDto, localImagePaths, new Callback<CardDto>() {
+                @Override
+                public void onResponse(Call<CardDto> call, Response<CardDto> response) {
+                    progressBar.setVisibility(View.GONE);
+                    btnSave.setEnabled(true);
+                    if (response.isSuccessful()) {
+                        manageImageFiles(frontText + backText);
+                        Toast.makeText(AddCardActivity.this, "Card updated successfully", Toast.LENGTH_SHORT).show();
+                        setResult(RESULT_OK);
+                        finish();
+                    } else {
+                        Toast.makeText(AddCardActivity.this, "Failed to update card", Toast.LENGTH_SHORT).show();
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<CardDto> call, Throwable t) {
+                    progressBar.setVisibility(View.GONE);
+                    btnSave.setEnabled(true);
+                    Toast.makeText(AddCardActivity.this, "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            });
         } else {
-            Card newCard = new Card(frontText, backText, deskId, currentDate);
-            long insertedId = cardRepository.insertCard(newCard);
-            if (insertedId != -1) {
-                newCard.setId((int) insertedId);
-                manageImageFiles(frontText + backText);
-                Toast.makeText(this, "Card created successfully", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(this, "Failed to create card", Toast.LENGTH_SHORT).show();
-            }
-        }
+            cardRepository.insertCard(cardDto, localImagePaths, new Callback<CardDto>() {
+                @Override
+                public void onResponse(Call<CardDto> call, Response<CardDto> response) {
+                    progressBar.setVisibility(View.GONE);
+                    btnSave.setEnabled(true);
+                    if (response.isSuccessful()) {
+                        manageImageFiles(frontText + backText);
+                        Toast.makeText(AddCardActivity.this, "Card created successfully", Toast.LENGTH_SHORT).show();
+                        setResult(RESULT_OK);
+                        finish();
+                    } else {
+                        Toast.makeText(AddCardActivity.this, "Failed to create card", Toast.LENGTH_SHORT).show();
+                    }
+                }
 
-        setResult(RESULT_OK);
-        finish();
+                @Override
+                public void onFailure(Call<CardDto> call, Throwable t) {
+                    progressBar.setVisibility(View.GONE);
+                    btnSave.setEnabled(true);
+                    Toast.makeText(AddCardActivity.this, "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+    }
+
+    private void manageImageFiles(String combinedHtml) {
+        try {
+            Set<String> usedImages = ImageManager.extractImagePathsFromHtml(combinedHtml, this);
+            Log.d("ImageCleanup", "Used images: " + usedImages);
+
+            Set<String> allImagesAddedInSession = new HashSet<>(sessionImages);
+            Log.d("ImageCleanup", "All images added in session: " + allImagesAddedInSession);
+
+            allImagesAddedInSession.removeAll(initialImages);
+            Log.d("ImageCleanup", "Images added in session after removing initial: " + allImagesAddedInSession);
+
+            Set<String> unusedImages = new HashSet<>(allImagesAddedInSession);
+            unusedImages.removeAll(usedImages);
+            Log.d("ImageCleanup", "Unused images to delete: " + unusedImages);
+
+            ImageManager.deleteImageFiles(unusedImages, this);
+            Log.d("ImageCleanup", "Deleted " + unusedImages.size() + " unused images");
+        } catch (Exception e) {
+            Log.e("ImageCleanup", "Error cleaning up images: " + e.getMessage(), e);
+        }
     }
 }

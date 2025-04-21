@@ -8,19 +8,21 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.cntt2.flashcard.App;
 import com.cntt2.flashcard.R;
+import com.cntt2.flashcard.data.remote.dto.CardDto;
+import com.cntt2.flashcard.data.remote.dto.DeskDto;
 import com.cntt2.flashcard.data.repository.CardRepository;
 import com.cntt2.flashcard.data.repository.DeskRepository;
-import com.cntt2.flashcard.data.repository.ReviewRepository;
-import com.cntt2.flashcard.model.Card;
-import com.cntt2.flashcard.model.Desk;
 import com.cntt2.flashcard.ui.activities.AddCardActivity;
 import com.cntt2.flashcard.ui.activities.ShowCardActivity;
 import com.cntt2.flashcard.ui.activities.StudyActivity;
@@ -29,12 +31,13 @@ import com.cntt2.flashcard.utils.ConfirmDialog;
 import com.cntt2.flashcard.utils.OptionsDialog;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLongClickListener, FlashcardAdapter.OnCardClickListener {
     private static final int REQUEST_START_A_LEARNING_SESSION = 301;
@@ -42,33 +45,30 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
 
     private RecyclerView recyclerView;
     private FlashcardAdapter adapter;
-    private List<Card> cardList = new ArrayList<>();
-    private List<Card> cardsToReview = new ArrayList<>();
-    private List<Card> newToLearn = new ArrayList<>();
-
+    private List<CardDto> cardList = new ArrayList<>();
+    private List<CardDto> cardsToReview = new ArrayList<>();
+    private List<CardDto> newToLearn = new ArrayList<>();
     private EditText edtSearch;
     private TextView toLearn;
     private TextView toReview;
     private Button btnStartLearnSession;
+    private ProgressBar progressBar;
     private final int MAX_CARDS = 200;
-    private int deskId;
+    private String deskId;
     private CardRepository cardRepository = App.getInstance().getCardRepository();
-    private ReviewRepository reviewRepository = App.getInstance().getReviewRepository();
-
     private DeskRepository deskRepository = App.getInstance().getDeskRepository();
 
     public CardsFragment() {
     }
 
-    public CardsFragment(List<Card> cardList) {
+    public CardsFragment(List<CardDto> cardList) {
         this.cardList = cardList;
     }
 
-    public static CardsFragment newInstance(String param1, String param2) {
+    public static CardsFragment newInstance(String deskId) {
         CardsFragment fragment = new CardsFragment();
         Bundle args = new Bundle();
-        args.putString("param1", param1);
-        args.putString("param2", param2);
+        args.putString("deskId", deskId);
         fragment.setArguments(args);
         return fragment;
     }
@@ -77,7 +77,7 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
-            deskId = getArguments().getInt("deskId", -1);
+            deskId = getArguments().getString("deskId");
         }
     }
 
@@ -87,25 +87,16 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
 
         recyclerView = view.findViewById(R.id.recyclerView);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-
         edtSearch = view.findViewById(R.id.edtSearch);
         btnStartLearnSession = view.findViewById(R.id.btnStartLearnSession);
         toLearn = view.findViewById(R.id.toLearn);
         toReview = view.findViewById(R.id.toReview);
+        progressBar = view.findViewById(R.id.progressBar);
 
-        if (deskId != -1) {
-            cardList = cardRepository.getCardsByDeskId(deskId);
-        } else {
-            cardList = new ArrayList<>();
-        }
-
-        cardsToReview = cardRepository.getCardsToReview(deskId);
-        newToLearn = cardRepository.getNewCards(deskId);
-        toLearn.setText(String.valueOf(newToLearn.size()));
-        toReview.setText(String.valueOf(cardsToReview.size()));
-
-        adapter = new FlashcardAdapter(cardList, this, this); // Truyền this làm listener
+        adapter = new FlashcardAdapter(cardList, this, this);
         recyclerView.setAdapter(adapter);
+
+        loadCards();
 
         edtSearch.addTextChangedListener(new android.text.TextWatcher() {
             @Override
@@ -133,19 +124,79 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
         return view;
     }
 
+    private void loadCards() {
+        progressBar.setVisibility(View.VISIBLE);
+        cardRepository.getCardsByDeskId(deskId, new Callback<List<CardDto>>() {
+            @Override
+            public void onResponse(Call<List<CardDto>> call, Response<List<CardDto>> response) {
+                progressBar.setVisibility(View.GONE);
+                if (response.isSuccessful() && response.body() != null) {
+                    cardList = response.body();
+                    adapter.setData(cardList);
+                    updateToLearnAndToReview();
+                } else {
+                    Toast.makeText(getContext(), "Failed to load cards", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<CardDto>> call, Throwable t) {
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(getContext(), "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void updateToLearnAndToReview() {
+        progressBar.setVisibility(View.VISIBLE);
+        cardRepository.getNewCards(deskId, new Callback<List<CardDto>>() {
+            @Override
+            public void onResponse(Call<List<CardDto>> call, Response<List<CardDto>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    newToLearn = response.body();
+                    toLearn.setText(String.valueOf(newToLearn.size()));
+                }
+                loadCardsToReview();
+            }
+
+            @Override
+            public void onFailure(Call<List<CardDto>> call, Throwable t) {
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(getContext(), "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void loadCardsToReview() {
+        cardRepository.getCardsToReview(deskId, new Callback<List<CardDto>>() {
+            @Override
+            public void onResponse(Call<List<CardDto>> call, Response<List<CardDto>> response) {
+                progressBar.setVisibility(View.GONE);
+                if (response.isSuccessful() && response.body() != null) {
+                    cardsToReview = response.body();
+                    toReview.setText(String.valueOf(cardsToReview.size()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<CardDto>> call, Throwable t) {
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(getContext(), "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if ((requestCode == REQUEST_START_A_LEARNING_SESSION || requestCode == REQUEST_EDIT_CARD)
                 && resultCode == getActivity().RESULT_OK) {
-            updateToLearnAndToReview();
-            cardList = cardRepository.getCardsByDeskId(deskId);
-            adapter.setData(cardList);
+            loadCards();
         }
     }
 
     @Override
-    public void onCardLongClick(Card card, int position) {
+    public void onCardLongClick(CardDto card, int position) {
         List<OptionsDialog.Option> options = new ArrayList<>();
         options.add(new OptionsDialog.Option("Edit", R.drawable.ic_edit, 0xFFFFFFFF, () -> editCard(card)));
         options.add(new OptionsDialog.Option("Move to desk", R.drawable.ic_move, 0xFFFFFFFF, () -> moveCard(card)));
@@ -164,103 +215,130 @@ public class CardsFragment extends Fragment implements FlashcardAdapter.OnCardLo
     public void onCardClick(int position) {
         Intent intent = new Intent(getContext(), ShowCardActivity.class);
         intent.putExtra("deskId", deskId);
-        intent.putExtra("startPosition", position); // Truyền position của Card
+        intent.putExtra("startPosition", position);
         startActivityForResult(intent, REQUEST_START_A_LEARNING_SESSION);
     }
 
-    private void editCard(Card card) {
+    private void editCard(CardDto card) {
         Intent intent = new Intent(getContext(), AddCardActivity.class);
         intent.putExtra("isEditMode", true);
         intent.putExtra("cardId", card.getId());
+        intent.putExtra("deskId", deskId);
         startActivityForResult(intent, REQUEST_EDIT_CARD);
     }
 
-    private void moveCard(Card card) {
+    private void moveCard(CardDto card) {
         showChangeDeskDialog(card);
     }
 
-    private void showChangeDeskDialog(Card card) {
-//        View view = LayoutInflater.from(getContext()).inflate(R.layout.card_change_desk, null);
-//        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
-//        dialog.setContentView(view);
-//
-//        Spinner deskSpinner = view.findViewById(R.id.destDeskSpinner);
-//        List<Map<Integer, String>> deskNames = new ArrayList<>();
-//
-//        var desks = deskRepository.getAllDesks();
-//
-//        for (Desk desk : desks) {
-//            deskNames.add(Map.of(desk.getId(), desk.getName()));
-//        }
-//
-//        String currentDesk = "";
-//                //deskRepository.getDeskById(card.getDeskId()).getName();
-//
-//        deskNames.remove(Map.of(card.getDeskId(), currentDesk));
-//        deskNames.add(0, Map.of(card.getDeskId(), currentDesk));
-//
-//        // take values from map
-//        List<String> deskNameList = new ArrayList<>();
-//        for (Map<Integer, String> desk : deskNames) {
-//            for (String name : desk.values()) {
-//                deskNameList.add(name);
-//            }
-//        }
-//
-//        ArrayAdapter<String> adapter = new ArrayAdapter<>(getContext(), R.layout.spinner_item, deskNameList);
-//        adapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
-//        deskSpinner.setAdapter(adapter);
-//
-//        view.findViewById(R.id.btnCardChangeDeskSave).setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View view) {
-//                int selectedPosition = deskSpinner.getSelectedItemPosition();
-//                // get key from map at selectedPosition
-//                int selectedDeskId = (int) deskNames.get(selectedPosition).keySet().toArray()[0];
-//
-//                card.setDeskId(selectedDeskId);
-//
-//                cardRepository.updateCard(card, false);
-//
-//                updateCardList();
-//                dialog.dismiss();
-//
-//            }
-//        });
-//
-//        dialog.show();
+    private void showChangeDeskDialog(CardDto card) {
+        View view = LayoutInflater.from(getContext()).inflate(R.layout.card_change_desk, null);
+        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
+        dialog.setContentView(view);
+
+        Spinner deskSpinner = view.findViewById(R.id.destDeskSpinner);
+        List<Map<String, String>> deskNames = new ArrayList<>();
+
+        deskRepository.getAllDesks(new Callback<List<DeskDto>>() {
+            @Override
+            public void onResponse(Call<List<DeskDto>> call, Response<List<DeskDto>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    for (DeskDto desk : response.body()) {
+                        deskNames.add(Map.of(desk.getId(), desk.getName()));
+                    }
+
+                    String currentDesk = deskNames.stream()
+                            .filter(d -> d.containsKey(card.getDeskId()))
+                            .findFirst()
+                            .map(d -> d.get(card.getDeskId()))
+                            .orElse("");
+
+                    deskNames.removeIf(d -> d.containsKey(card.getDeskId()));
+                    deskNames.add(0, Map.of(card.getDeskId(), currentDesk));
+
+                    List<String> deskNameList = new ArrayList<>();
+                    for (Map<String, String> desk : deskNames) {
+                        deskNameList.add(desk.values().iterator().next());
+                    }
+
+                    ArrayAdapter<String> adapter = new ArrayAdapter<>(getContext(), R.layout.spinner_item, deskNameList);
+                    adapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
+                    deskSpinner.setAdapter(adapter);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<DeskDto>> call, Throwable t) {
+                Toast.makeText(getContext(), "Failed to load desks", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        view.findViewById(R.id.btnCardChangeDeskSave).setOnClickListener(v -> {
+            int selectedPosition = deskSpinner.getSelectedItemPosition();
+            String selectedDeskId = deskNames.get(selectedPosition).keySet().iterator().next();
+
+            card.setDeskId(selectedDeskId);
+            progressBar.setVisibility(View.VISIBLE);
+            cardRepository.updateCard(card.getId(), card, new ArrayList<>(), new Callback<CardDto>() {
+                @Override
+                public void onResponse(Call<CardDto> call, Response<CardDto> response) {
+                    progressBar.setVisibility(View.GONE);
+                    if (response.isSuccessful()) {
+                        updateCardList();
+                        dialog.dismiss();
+                        Toast.makeText(getContext(), "Card moved", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(getContext(), "Failed to move card", Toast.LENGTH_SHORT).show();
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<CardDto> call, Throwable t) {
+                    progressBar.setVisibility(View.GONE);
+                    Toast.makeText(getContext(), "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            });
+        });
+
+        dialog.show();
     }
 
-    private void deleteCard(Card card, int position) {
-        cardRepository.deleteCard(card);
-        cardList.remove(position);
-        adapter.notifyItemRemoved(position);
-        updateToLearnAndToReview();
-        Toast.makeText(getContext(), "Đã xóa thẻ", Toast.LENGTH_SHORT).show();
-    }
+    private void deleteCard(CardDto card, int position) {
+        progressBar.setVisibility(View.VISIBLE);
+        cardRepository.deleteCard(card.getId(), new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                progressBar.setVisibility(View.GONE);
+                if (response.isSuccessful()) {
+                    cardList.remove(position);
+                    adapter.notifyItemRemoved(position);
+                    updateToLearnAndToReview();
+                    Toast.makeText(getContext(), "Đã xóa thẻ", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(getContext(), "Failed to delete card", Toast.LENGTH_SHORT).show();
+                }
+            }
 
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(getContext(), "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
 
     private void filterCards(String keyword) {
-        List<Card> filtered = new ArrayList<>();
-        for (Card card : cardList) {
+        List<CardDto> filtered = new ArrayList<>();
+        for (CardDto card : cardList) {
             if (card.getFront().toLowerCase().contains(keyword.toLowerCase())
-                    || card.getFront().toLowerCase().contains(keyword.toLowerCase())) {
+                    || card.getBack().toLowerCase().contains(keyword.toLowerCase())) {
                 filtered.add(card);
             }
         }
         adapter.setData(filtered);
     }
 
-    private void updateToLearnAndToReview() {
-        cardsToReview = cardRepository.getCardsToReview(deskId);
-        newToLearn = cardRepository.getNewCards(deskId);
-        toLearn.setText(String.valueOf(newToLearn.size()));
-        toReview.setText(String.valueOf(cardsToReview.size()));
-    }
-
     public void updateCardList() {
-        cardList = cardRepository.getCardsByDeskId(deskId);
-        adapter.setData(cardList);
-        updateToLearnAndToReview();
+        loadCards();
     }
 }

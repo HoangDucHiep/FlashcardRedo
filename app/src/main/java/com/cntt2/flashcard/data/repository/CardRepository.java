@@ -4,200 +4,320 @@ import android.content.Context;
 import android.util.Log;
 
 import com.cntt2.flashcard.App;
-import com.cntt2.flashcard.data.local.dao.CardDao;
-import com.cntt2.flashcard.model.Card;
-import com.cntt2.flashcard.model.IdMapping;
-import com.cntt2.flashcard.model.Review;
+import com.cntt2.flashcard.data.remote.ApiService;
+import com.cntt2.flashcard.data.remote.dto.CardDto;
+import com.cntt2.flashcard.data.remote.dto.ImageDto;
 import com.cntt2.flashcard.utils.ImageManager;
 
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.TimeZone;
 
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
 public class CardRepository {
     private static final String TAG = "CardRepository";
-    private final CardDao cardDao;
-    private final ReviewRepository reviewRepository = App.getInstance().getReviewRepository();
+    private final ApiService apiService;
     private final Context context;
-    private final IdMappingRepository idMappingRepository;
     private final SimpleDateFormat dateFormat;
 
     public CardRepository(Context context) {
         this.context = context;
-        cardDao = new CardDao(context);
-        idMappingRepository = new IdMappingRepository(context);
+        this.apiService = App.getInstance().getApiService();
         dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault());
         dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
     }
 
-    public long insertCard(Card card) {
-        return insertCard(card, false); // Gọi từ UI, không phải đồng bộ
+    public void insertCard(CardDto cardDto, List<String> localImagePaths, Callback<CardDto> callback) {
+        uploadImagesAndCreateCard(cardDto, localImagePaths, callback);
     }
 
-    public long insertCard(Card card, boolean fromSync) {
-        String currentTime = dateFormat.format(new Date());
-        card.setLastModified(currentTime);
-        if (card.getCreatedAt() == null) {
-            card.setCreatedAt(currentTime);
-        }
-        if (card.getServerId() == null) {
-            card.setSyncStatus("pending_create");
-        } else {
-            card.setSyncStatus("synced");
-        }
-
-        long cardId = cardDao.insertCard(card);
-        if (cardId != -1) {
-            Log.d(TAG, "Inserted card - ID: " + cardId + ", syncStatus: " + card.getSyncStatus());
-            if (card.getServerId() != null) {
-                idMappingRepository.insertIdMapping(new IdMapping((int) cardId, card.getServerId(), "card"));
-            }
-            if (!fromSync) {
-                Review review = new Review();
-                review.setCardId((int) cardId);
-                review.setEase(2.5);
-                review.setInterval(0);
-                review.setRepetition(0);
-                review.setNextReviewDate(currentTime);
-                review.setLastReviewed(null);
-                review.setSyncStatus("pending_create");
-                long reviewId = reviewRepository.insertReview(review);
-                if (reviewId == -1) {
-                    Log.e(TAG, "Failed to insert review for cardId: " + cardId);
-                    cardDao.deleteCard((int) cardId);
-                    return -1;
-                }
-            }
-        }
-        return cardId;
-    }
-
-
-    public void updateCard(Card card, boolean fromSync) {
-        Card existingCard = cardDao.getCardById(card.getId());
-        if (existingCard != null) {
-            if (!fromSync && (!existingCard.getFront().equals(card.getFront()) ||
-                    !existingCard.getBack().equals(card.getBack()) ||
-                    !nullSafeEquals(existingCard.getDeskId(), card.getDeskId()))) {
-                card.setLastModified(dateFormat.format(new Date()));
-                card.setSyncStatus("pending_update");
-            }
-            cardDao.updateCard(card);
-            Log.d(TAG, "Updated card - ID: " + card.getId() + ", syncStatus: " + card.getSyncStatus() + ", fromSync: " + fromSync);
-        } else {
-            Log.w(TAG, "No existing card found to update - ID: " + card.getId());
-        }
-    }
-
-    public void deleteCard(Card card) {
-        if (card == null) {
-            Log.w(TAG, "Attempted to delete null card");
+    private void uploadImagesAndCreateCard(CardDto cardDto, List<String> localImagePaths, Callback<CardDto> callback) {
+        if (localImagePaths.isEmpty()) {
+            createCard(cardDto, callback);
             return;
         }
-        card.setSyncStatus("pending_delete");
-        updateCard(card, false);
-        Log.d(TAG, "Marked card for deletion - ID: " + card.getId());
 
-        // Xử lý review liên quan
-        Review review = reviewRepository.getReviewByCardId(card.getId());
-        if (review != null) {
-            String serverId = idMappingRepository.getServerIdByLocalId(card.getId(), "card");
-            if (serverId == null) {
-                // Nếu card chưa sync, xóa review ngay lập tức
-                reviewRepository.deleteReviewConfirmed(review.getId());
-                Log.d(TAG, "Deleted review immediately as card not synced - Review ID: " + review.getId() + " for Card ID: " + card.getId());
-            } else {
-                // Nếu card đã sync, đánh dấu review để sync xóa
-                review.setSyncStatus("pending_delete");
-                reviewRepository.updateReview(review, false);
-                Log.d(TAG, "Marked review for deletion - Review ID: " + review.getId() + " for Card ID: " + card.getId());
+        List<String> serverImagePaths = new ArrayList<>();
+        int[] uploadCount = {0};
+
+        for (String localPath : localImagePaths) {
+            File file = new File(localPath);
+            if (!file.exists()) {
+                Log.w(TAG, "Image file does not exist: " + localPath);
+                continue;
             }
-        } else {
-            Log.w(TAG, "No review found for card - ID: " + card.getId());
-        }
-    }
 
-    public void deleteCardConfirmed(int cardId) {
-        try {
-            Card card = cardDao.getCardById(cardId);
+            RequestBody requestFile = RequestBody.create(MediaType.parse("image/*"), file);
+            MultipartBody.Part body = MultipartBody.Part.createFormData("file", file.getName(), requestFile);
 
-            int rowsAffected = cardDao.deleteCard(cardId);
-            if (rowsAffected > 0) {
-                idMappingRepository.deleteIdMapping(cardId, "card");
+            apiService.uploadImage(body).enqueue(new Callback<ImageDto>() {
+                @Override
+                public void onResponse(Call<ImageDto> call, Response<ImageDto> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        serverImagePaths.add(response.body().getUrl());
+                        Log.d(TAG, "Uploaded image: " + response.body().getUrl());
+                    } else {
+                        Log.e(TAG, "Failed to upload image: " + response.message());
+                    }
 
-                if (card != null) {
-                    String frontAndBackHtml = card.getFront() + card.getBack();
-                    Set<String> images = ImageManager.extractImagePathsFromHtml(frontAndBackHtml, context);
-                    ImageManager.deleteImageFiles(images, context);
-                    Log.d(TAG, "Successfully deleted card, mapping, and associated images - ID: " + cardId);
-                } else {
-                    Log.w(TAG, "Card was deleted but not found in query before deletion - ID: " + cardId);
+                    uploadCount[0]++;
+                    if (uploadCount[0] == localImagePaths.size()) {
+                        Log.d(TAG, "Local paths: " + localImagePaths);
+                        Log.d(TAG, "Server URLs: " + serverImagePaths);
+                        cardDto.setFront(replaceImagePaths(cardDto.getFront(), localImagePaths, serverImagePaths));
+                        cardDto.setBack(replaceImagePaths(cardDto.getBack(), localImagePaths, serverImagePaths));
+                        createCard(cardDto, callback);
+                        ImageManager.deleteImageFiles(new HashSet<>(localImagePaths), context);
+                    }
                 }
-            } else {
-                idMappingRepository.deleteIdMapping(cardId, "card");
-                Log.w(TAG, "No card found to delete - ID: " + cardId);
+
+                @Override
+                public void onFailure(Call<ImageDto> call, Throwable t) {
+                    Log.e(TAG, "Network error uploading image: " + t.getMessage());
+                    uploadCount[0]++;
+                    if (uploadCount[0] == localImagePaths.size()) {
+                        cardDto.setFront(replaceImagePaths(cardDto.getFront(), localImagePaths, serverImagePaths));
+                        cardDto.setBack(replaceImagePaths(cardDto.getBack(), localImagePaths, serverImagePaths));
+                        createCard(cardDto, callback);
+                        ImageManager.deleteImageFiles(new HashSet<>(localImagePaths), context);
+                    }
+                }
+            });
+        }
+    }
+
+    private void createCard(CardDto cardDto, Callback<CardDto> callback) {
+        Log.d(TAG, "Creating card with front: " + cardDto.getFront());
+        Log.d(TAG, "Creating card with back: " + cardDto.getBack());
+        Call<CardDto> call = apiService.createCard(cardDto);
+        call.enqueue(new Callback<CardDto>() {
+            @Override
+            public void onResponse(Call<CardDto> call, Response<CardDto> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "Card created - ID: " + response.body().getId());
+                    callback.onResponse(call, response);
+                } else {
+                    Log.e(TAG, "Failed to create card: " + response.message());
+                    callback.onFailure(call, new Throwable("Failed to create card: " + response.message()));
+                }
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to delete card - ID: " + cardId + ", error: " + e.getMessage(), e);
-            throw new RuntimeException("Failed to delete card: " + e.getMessage());
+
+            @Override
+            public void onFailure(Call<CardDto> call, Throwable t) {
+                Log.e(TAG, "Network error creating card: " + t.getMessage());
+                callback.onFailure(call, t);
+            }
+        });
+    }
+
+    public void updateCard(String id, CardDto cardDto, List<String> localImagePaths, Callback<CardDto> callback) {
+        uploadImagesAndUpdateCard(id, cardDto, localImagePaths, callback);
+    }
+
+    private void uploadImagesAndUpdateCard(String id, CardDto cardDto, List<String> localImagePaths, Callback<CardDto> callback) {
+        if (localImagePaths.isEmpty()) {
+            updateCard(id, cardDto, callback);
+            return;
+        }
+
+        List<String> serverImagePaths = new ArrayList<>();
+        int[] uploadCount = {0};
+
+        for (String localPath : localImagePaths) {
+            File file = new File(localPath);
+            if (!file.exists()) {
+                Log.w(TAG, "Image file does not exist: " + localPath);
+                continue;
+            }
+
+            RequestBody requestFile = RequestBody.create(MediaType.parse("image/*"), file);
+            MultipartBody.Part body = MultipartBody.Part.createFormData("file", file.getName(), requestFile);
+
+            apiService.uploadImage(body).enqueue(new Callback<ImageDto>() {
+                @Override
+                public void onResponse(Call<ImageDto> call, Response<ImageDto> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        serverImagePaths.add(response.body().getUrl());
+                        Log.d(TAG, "Uploaded image: " + response.body().getUrl());
+                    } else {
+                        Log.e(TAG, "Failed to upload image: " + response.message());
+                    }
+
+                    uploadCount[0]++;
+                    if (uploadCount[0] == localImagePaths.size()) {
+                        Log.d(TAG, "Local paths: " + localImagePaths);
+                        Log.d(TAG, "Server URLs: " + serverImagePaths);
+                        cardDto.setFront(replaceImagePaths(cardDto.getFront(), localImagePaths, serverImagePaths));
+                        cardDto.setBack(replaceImagePaths(cardDto.getBack(), localImagePaths, serverImagePaths));
+                        updateCard(id, cardDto, callback);
+                        ImageManager.deleteImageFiles(new HashSet<>(localImagePaths), context);
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<ImageDto> call, Throwable t) {
+                    Log.e(TAG, "Network error uploading image: " + t.getMessage());
+                    uploadCount[0]++;
+                    if (uploadCount[0] == localImagePaths.size()) {
+                        cardDto.setFront(replaceImagePaths(cardDto.getFront(), localImagePaths, serverImagePaths));
+                        cardDto.setBack(replaceImagePaths(cardDto.getBack(), localImagePaths, serverImagePaths));
+                        updateCard(id, cardDto, callback);
+                        ImageManager.deleteImageFiles(new HashSet<>(localImagePaths), context);
+                    }
+                }
+            });
         }
     }
 
-    public Card getCardById(int cardId) {
-        Card card = cardDao.getCardById(cardId);
-        if (card == null) {
-            Log.w(TAG, "No card found - ID: " + cardId);
+    private void updateCard(String id, CardDto cardDto, Callback<CardDto> callback) {
+        Log.d(TAG, "Updating card with front: " + cardDto.getFront());
+        Log.d(TAG, "Updating card with back: " + cardDto.getBack());
+        Call<CardDto> call = apiService.updateCard(id, cardDto);
+        call.enqueue(new Callback<CardDto>() {
+            @Override
+            public void onResponse(Call<CardDto> call, Response<CardDto> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "Card updated - ID: " + id);
+                    callback.onResponse(call, response);
+                } else {
+                    Log.e(TAG, "Failed to update card: " + response.message());
+                    callback.onFailure(call, new Throwable("Failed to update card: " + response.message()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<CardDto> call, Throwable t) {
+                Log.e(TAG, "Network error updating card: " + t.getMessage());
+                callback.onFailure(call, t);
+            }
+        });
+    }
+
+    public void deleteCard(String id, Callback<Void> callback) {
+        Call<Void> call = apiService.deleteCard(id);
+        call.enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    Log.d(TAG, "Card deleted - ID: " + id);
+                    callback.onResponse(call, response);
+                } else {
+                    Log.e(TAG, "Failed to delete card: " + response.message());
+                    callback.onFailure(call, new Throwable("Failed to delete card: " + response.message()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Log.e(TAG, "Network error deleting card: " + t.getMessage());
+                callback.onFailure(call, t);
+            }
+        });
+    }
+
+    public void getCardsByDeskId(String deskId, Callback<List<CardDto>> callback) {
+        Call<List<CardDto>> call = apiService.getCardsByDeskId(deskId);
+        call.enqueue(new Callback<List<CardDto>>() {
+            @Override
+            public void onResponse(Call<List<CardDto>> call, Response<List<CardDto>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "Fetched cards: " + response.body().size());
+                    callback.onResponse(call, response);
+                } else {
+                    Log.e(TAG, "Failed to fetch cards: " + response.message());
+                    callback.onFailure(call, new Throwable("Failed to fetch cards: " + response.message()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<CardDto>> call, Throwable t) {
+                Log.e(TAG, "Network error fetching cards: " + t.getMessage());
+                callback.onFailure(call, t);
+            }
+        });
+    }
+
+    public void getNewCards(String deskId, Callback<List<CardDto>> callback) {
+        Call<List<CardDto>> call = apiService.getNewCards(deskId);
+        call.enqueue(new Callback<List<CardDto>>() {
+            @Override
+            public void onResponse(Call<List<CardDto>> call, Response<List<CardDto>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "Fetched new cards: " + response.body().size());
+                    callback.onResponse(call, response);
+                } else {
+                    Log.e(TAG, "Failed to fetch new cards: " + response.message());
+                    callback.onFailure(call, new Throwable("Failed to fetch new cards: " + response.message()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<CardDto>> call, Throwable t) {
+                Log.e(TAG, "Network error fetching new cards: " + t.getMessage());
+                callback.onFailure(call, t);
+            }
+        });
+    }
+
+    public void getCardsToReview(String deskId, Callback<List<CardDto>> callback) {
+        String today = dateFormat.format(new Date());
+        Call<List<CardDto>> call = apiService.getCardsDueToday(deskId, today);
+        call.enqueue(new Callback<List<CardDto>>() {
+            @Override
+            public void onResponse(Call<List<CardDto>> call, Response<List<CardDto>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "Fetched cards to review: " + response.body().size());
+                    callback.onResponse(call, response);
+                } else {
+                    Log.e(TAG, "Failed to fetch cards to review: " + response.message());
+                    callback.onFailure(call, new Throwable("Failed to fetch cards to review: " + response.message()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<CardDto>> call, Throwable t) {
+                Log.e(TAG, "Network error fetching cards to review: " + t.getMessage());
+                callback.onFailure(call, t);
+            }
+        });
+    }
+
+    private String replaceImagePaths(String html, List<String> localPaths, List<String> serverUrls) {
+        if (html == null || localPaths.isEmpty() || serverUrls.isEmpty()) {
+            Log.d(TAG, "No replacement needed: html=" + (html == null ? "null" : "not null") +
+                    ", localPaths=" + localPaths.size() + ", serverUrls=" + serverUrls.size());
+            return html;
         }
-        return card;
-    }
 
-    public List<Card> getNewCards(int deskId) {
-        List<Card> cards = reviewRepository.getNewCards(deskId);
-        Log.d(TAG, "Retrieved " + cards.size() + " new cards for deskId: " + deskId);
-        return new ArrayList<>(cards);
-    }
+        String result = html;
+        for (int i = 0; i < localPaths.size() && i < serverUrls.size(); i++) {
+            String localPath = localPaths.get(i);
+            String serverUrl = serverUrls.get(i);
+            String fileName = new File(localPath).getName();
 
-    public List<Card> getAllCards()
-    {
-        List<Card> allCards = cardDao.getAllCards();
-        return new ArrayList<>(allCards);
-    }
+            // Replace content:// URIs
+            String contentUriPattern = "content://com\\.cntt2\\.flashcard\\.fileprovider/images/" + fileName.replaceAll("[\\W]", "\\\\$0");
+            result = result.replaceAll(contentUriPattern, serverUrl);
 
-    public List<Card> getCardsToReview(int deskId) {
-        List<Card> cards = reviewRepository.getCardsToReview(deskId);
-        Log.d(TAG, "Retrieved " + cards.size() + " cards to review for deskId: " + deskId);
-        return new ArrayList<>(cards);
-    }
+            // Replace file:// URIs
+            String fileUriPattern = "file://" + localPath.replaceAll("[\\W]", "\\\\$0");
+            result = result.replaceAll(fileUriPattern, serverUrl);
 
-    public List<Card> getCardsByDeskId(int deskId) {
-        List<Card> cards = cardDao.getCardsByDeskId(deskId);
-        cards.removeIf(card -> "pending_delete".equals(card.getSyncStatus()));
-        Log.d(TAG, "Retrieved " + cards.size() + " cards for deskId: " + deskId);
-        return new ArrayList<>(cards);
-    }
-
-    public List<Card> getPendingCards(String syncStatus) {
-        List<Card> pendingCards = cardDao.getPendingCards(syncStatus);
-        Log.d(TAG, "getPendingCards(" + syncStatus + ") returned " + pendingCards.size() + " cards");
-        return pendingCards;
-    }
-
-    public void updateSyncStatus(int cardId, String syncStatus) {
-        Card card = getCardById(cardId);
-        if (card != null) {
-            card.setSyncStatus(syncStatus);
-            cardDao.updateCard(card);
-            Log.d(TAG, "Updated syncStatus for card - ID: " + cardId + ", syncStatus: " + syncStatus);
+            Log.d(TAG, "Replacing local path: " + localPath + " with server URL: " + serverUrl);
+            Log.d(TAG, "Updated HTML: " + result);
         }
-    }
-
-    private boolean nullSafeEquals(Integer a, Integer b) {
-        if (a == null && b == null) return true;
-        if (a == null || b == null) return false;
-        return a.equals(b);
+        return result;
     }
 }

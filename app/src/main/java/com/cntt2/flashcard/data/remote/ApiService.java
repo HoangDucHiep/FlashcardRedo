@@ -85,10 +85,16 @@ public interface ApiService {
     Call<List<CardDto>> getCardsByDeskId(@Query("deskId") String deskId);
 
     @PUT("api/card/{id}")
-    Call<Void> updateCard(@Path("id") String id, @Body CardDto card);
+    Call<CardDto> updateCard(@Path("id") String id, @Body CardDto card); // Changed from Void to CardDto
 
     @DELETE("api/card/{id}")
     Call<Void> deleteCard(@Path("id") String id);
+
+    @GET("api/card/new")
+    Call<List<CardDto>> getNewCards(@Query("deskId") String deskId);
+
+    @GET("api/card/due-today")
+    Call<List<CardDto>> getCardsDueToday(@Query("deskId") String deskId, @Query("today") String today);
 
     // Review endpoints
     @POST("api/review")

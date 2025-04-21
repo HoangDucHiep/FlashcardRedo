@@ -92,11 +92,11 @@ public class StudyActivity extends AppCompatActivity {
 
         // Tạo danh sách thẻ (sample data)
         cardList = new ArrayList<>();
-        cardList.addAll(cardRepository.getNewCards(deskId));
-        cardList.addAll(cardRepository.getCardsToReview(deskId));
+//        cardList.addAll(cardRepository.getNewCards(deskId));
+//        cardList.addAll(cardRepository.getCardsToReview(deskId));
 
         if (cardList.size() == 0) {
-            cardList.addAll(cardRepository.getCardsByDeskId(deskId));
+            //cardList.addAll(cardRepository.getCardsByDeskId(deskId));
         }
 
 

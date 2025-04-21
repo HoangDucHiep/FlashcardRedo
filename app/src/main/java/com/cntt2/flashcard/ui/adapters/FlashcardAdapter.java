@@ -10,35 +10,31 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.cntt2.flashcard.R;
-import com.cntt2.flashcard.model.Card;
+import com.cntt2.flashcard.data.remote.dto.CardDto;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class FlashcardAdapter extends RecyclerView.Adapter<FlashcardAdapter.CardViewHolder> {
 
-    private List<Card> flashcardList;
+    private List<CardDto> flashcardList;
     private OnCardLongClickListener longClickListener;
     private OnCardClickListener clickListener;
 
-
     public interface OnCardLongClickListener {
-        void onCardLongClick(Card card, int position);
+        void onCardLongClick(CardDto card, int position);
     }
 
     public interface OnCardClickListener {
         void onCardClick(int position);
     }
 
-    public FlashcardAdapter(List<Card> flashcardList, OnCardLongClickListener listener, OnCardClickListener clickListener) {
+    public FlashcardAdapter(List<CardDto> flashcardList, OnCardLongClickListener listener, OnCardClickListener clickListener) {
         this.flashcardList = flashcardList != null ? flashcardList : new ArrayList<>();
         this.longClickListener = listener;
         this.clickListener = clickListener;
@@ -54,13 +50,13 @@ public class FlashcardAdapter extends RecyclerView.Adapter<FlashcardAdapter.Card
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public void onBindViewHolder(@NonNull CardViewHolder holder, int position) {
-        Card card = flashcardList.get(position);
+        CardDto card = flashcardList.get(position);
 
-        // Cấu hình WebView
+        // Configure WebView
         configureWebView(holder.cardFront);
         configureWebView(holder.cardBack);
 
-        // Tải nội dung HTML
+        // Load HTML content
         loadCardContent(holder.cardFront, card.getFront());
         loadCardContent(holder.cardBack, card.getBack());
 
@@ -73,7 +69,7 @@ public class FlashcardAdapter extends RecyclerView.Adapter<FlashcardAdapter.Card
             return true;
         });
 
-        // Xử lý sự kiện long click
+        // Handle long click
         holder.itemView.setOnLongClickListener(v -> {
             if (longClickListener != null) {
                 longClickListener.onCardLongClick(card, position);
@@ -94,17 +90,16 @@ public class FlashcardAdapter extends RecyclerView.Adapter<FlashcardAdapter.Card
         return flashcardList.size();
     }
 
-    // Cấu hình chung cho WebView
     private void configureWebView(WebView webView) {
-        webView.setBackgroundColor(0x00000000); // Nền trong suốt
+        webView.setBackgroundColor(0x00000000);
         WebSettings settings = webView.getSettings();
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(true);
-        settings.setJavaScriptEnabled(true); // Cho phép JS nếu cần
+        settings.setJavaScriptEnabled(true);
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                Log.e("WebViewError", "Lỗi tải tài nguyên: " + error.getDescription());
+                Log.e("WebViewError", "Error loading resource: " + error.getDescription());
             }
 
             @Override
@@ -114,21 +109,17 @@ public class FlashcardAdapter extends RecyclerView.Adapter<FlashcardAdapter.Card
         });
     }
 
-    // Tải nội dung HTML vào WebView
     private void loadCardContent(WebView webView, String content) {
         String cleanedContent = removeAllImageContent(content);
         String html = "<html><body style='background-color: rgb(27, 36, 51); color: white'>" + (cleanedContent != null ? cleanedContent : "") + "</body></html>";
-        String baseUrl = "content://com.cntt2.flashcard.fileprovider/images/";
-        webView.loadDataWithBaseURL(baseUrl, html, "text/html", "UTF-8", null);
+        webView.loadData(html, "text/html", "UTF-8");
     }
 
-    // Cập nhật danh sách thẻ
-    public void setData(List<Card> newList) {
+    public void setData(List<CardDto> newList) {
         this.flashcardList = newList != null ? newList : new ArrayList<>();
         notifyDataSetChanged();
     }
 
-    // Loại bỏ nội dung ảnh khỏi HTML (nếu cần)
     private String removeAllImageContent(String html) {
         if (html == null || html.isEmpty()) {
             return "";
