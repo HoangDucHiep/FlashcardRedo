@@ -279,29 +279,6 @@
                 android:adjustViewBounds="true"/>
 
             <ImageButton
-                android:id="@+id/action_txt_color"
-                android:layout_width="25dp"
-                android:layout_height="25dp"
-                android:layout_margin="8dp"
-                android:background="@null"
-                android:contentDescription="@null"
-                android:src="@drawable/txt_color"
-                android:scaleType="fitCenter"
-                android:adjustViewBounds="true"/>
-
-            <ImageButton
-                android:id="@+id/action_bg_color"
-                android:layout_width="25dp"
-                android:layout_height="25dp"
-                android:layout_margin="8dp"
-                android:background="@null"
-                android:contentDescription="@null"
-                android:src="@drawable/bg_color"
-                android:scaleType="fitCenter"
-                android:adjustViewBounds="true"/>
-
-
-            <ImageButton
                 android:id="@+id/action_indent"
                 android:layout_width="25dp"
                 android:layout_height="25dp"
@@ -391,45 +368,7 @@
                 android:scaleType="fitCenter"
                 android:adjustViewBounds="true"/>
 
-            <ImageButton
-                android:id="@+id/action_insert_audio"
-                android:layout_width="25dp"
-                android:layout_height="25dp"
-                android:background="@null"
-                android:contentDescription="@null"
-                android:src="@drawable/music"
-                android:scaleType="fitCenter"
-                android:adjustViewBounds="true"/>
 
-            <ImageButton
-                android:id="@+id/action_insert_video"
-                android:layout_width="25dp"
-                android:layout_height="25dp"
-                android:background="@null"
-                android:contentDescription="@null"
-                android:src="@drawable/video"
-                android:scaleType="fitCenter"
-                android:adjustViewBounds="true"/>
-
-            <ImageButton
-                android:id="@+id/action_insert_youtube"
-                android:layout_width="25dp"
-                android:layout_height="25dp"
-                android:background="@null"
-                android:contentDescription="@null"
-                android:src="@drawable/youtube"
-                android:scaleType="fitCenter"
-                android:adjustViewBounds="true"/>
-
-            <ImageButton
-                android:id="@+id/action_insert_link"
-                android:layout_width="25dp"
-                android:layout_height="25dp"
-                android:background="@null"
-                android:contentDescription="@null"
-                android:src="@drawable/insert_link"
-                android:scaleType="fitCenter"
-                android:adjustViewBounds="true"/>
 
             <ImageButton
                 android:id="@+id/action_insert_checkbox"

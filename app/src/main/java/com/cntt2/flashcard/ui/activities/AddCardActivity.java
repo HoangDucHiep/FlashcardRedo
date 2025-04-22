@@ -285,22 +285,6 @@ public class AddCardActivity extends AppCompatActivity {
         findViewById(R.id.action_heading4).setOnClickListener(v -> edtCardContent.setHeading(4));
         findViewById(R.id.action_heading5).setOnClickListener(v -> edtCardContent.setHeading(5));
         findViewById(R.id.action_heading6).setOnClickListener(v -> edtCardContent.setHeading(6));
-        findViewById(R.id.action_txt_color).setOnClickListener(new View.OnClickListener() {
-            private boolean isChanged;
-            @Override
-            public void onClick(View v) {
-                edtCardContent.setTextColor(isChanged ? Color.BLACK : Color.RED);
-                isChanged = !isChanged;
-            }
-        });
-        findViewById(R.id.action_bg_color).setOnClickListener(new View.OnClickListener() {
-            private boolean isChanged;
-            @Override
-            public void onClick(View v) {
-                edtCardContent.setTextBackgroundColor(isChanged ? Color.TRANSPARENT : Color.YELLOW);
-                isChanged = !isChanged;
-            }
-        });
         findViewById(R.id.action_indent).setOnClickListener(v -> edtCardContent.setIndent());
         findViewById(R.id.action_outdent).setOnClickListener(v -> edtCardContent.setOutdent());
         findViewById(R.id.action_align_left).setOnClickListener(v -> edtCardContent.setAlignLeft());
@@ -309,11 +293,7 @@ public class AddCardActivity extends AppCompatActivity {
         findViewById(R.id.action_blockquote).setOnClickListener(v -> edtCardContent.setBlockquote());
         findViewById(R.id.action_insert_bullets).setOnClickListener(v -> edtCardContent.setBullets());
         findViewById(R.id.action_insert_numbers).setOnClickListener(v -> edtCardContent.setNumbers());
-        findViewById(R.id.action_insert_youtube).setOnClickListener(v -> edtCardContent.insertYoutubeVideo("https://www.youtube.com/embed/pS5peqApgUA"));
-        findViewById(R.id.action_insert_audio).setOnClickListener(v -> edtCardContent.insertAudio("https://file-examples-com.github.io/uploads/2017/11/file_example_MP3_5MG.mp3"));
         findViewById(R.id.action_insert_image).setOnClickListener(v -> showImagePickerDialog());
-        findViewById(R.id.action_insert_video).setOnClickListener(v -> edtCardContent.insertVideo("https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/1080/Big_Buck_Bunny_1080_10s_10MB.mp4", 360));
-        findViewById(R.id.action_insert_link).setOnClickListener(v -> edtCardContent.insertLink("https://github.com/wasabeef", "wasabeef"));
         findViewById(R.id.action_insert_checkbox).setOnClickListener(v -> edtCardContent.insertTodo());
     }
 
