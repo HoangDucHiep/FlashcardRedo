@@ -16,7 +16,7 @@ import com.cntt2.flashcard.ui.fragments.SettingsFragment;
 import com.cntt2.flashcard.ui.fragments.SettingsFragment;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends BaseActivity {
 
     BottomNavigationView bottomNavigationView;
     @Override

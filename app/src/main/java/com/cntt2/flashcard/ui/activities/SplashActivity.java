@@ -15,7 +15,7 @@ import com.cntt2.flashcard.R;
 import com.cntt2.flashcard.data.remote.ApiClient;
 //import com.cntt2.flashcard.sync.SyncWorker;
 
-public class SplashActivity extends AppCompatActivity {
+public class SplashActivity extends BaseActivity {
     private TextView syncStatusText;
     private ProgressBar progressBar;
 

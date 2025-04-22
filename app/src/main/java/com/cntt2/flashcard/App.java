@@ -30,6 +30,8 @@ public class App extends Application {
     private LearningSessionRepository learningSessionRepository;
     private ApiService apiService;
 
+
+
     @Override
     public void onCreate() {
         super.onCreate();

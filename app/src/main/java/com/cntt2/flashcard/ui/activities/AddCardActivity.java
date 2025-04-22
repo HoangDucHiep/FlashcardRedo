@@ -46,7 +46,7 @@ import retrofit2.Callback;
 import retrofit2.Response;
 import android.Manifest;
 
-public class AddCardActivity extends AppCompatActivity {
+public class AddCardActivity extends BaseActivity {
 
     private RichEditor edtCardContent;
     private Button btnFront;
