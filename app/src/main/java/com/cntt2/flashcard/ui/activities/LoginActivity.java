@@ -36,13 +36,6 @@ public class LoginActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        // Kiểm tra nếu đã đăng nhập, chuyển sang SplashActivity để đồng bộ
-        if (ApiClient.isLoggedIn()) {
-            startActivity(new Intent(this, SplashActivity.class));
-            finish();
-            return;
-        }
-
         // Khởi tạo UI
         emailEditText = findViewById(R.id.email_edit_text);
         passwordEditText = findViewById(R.id.password_edit_text);
@@ -51,6 +44,9 @@ public class LoginActivity extends BaseActivity {
         forgotPasswordText = findViewById(R.id.forgot_password_text);
         apiService = App.getInstance().getApiService();
 
+        // Kiểm tra trạng thái đăng nhập
+        checkLoginStatus();
+
         // Xử lý sự kiện nhấn nút Login
         loginButton.setOnClickListener(v -> {
             String email = emailEditText.getText().toString().trim();
@@ -58,7 +54,7 @@ public class LoginActivity extends BaseActivity {
             if (!email.isEmpty() && !password.isEmpty()) {
                 login(email, password);
             } else {
-                Toast.makeText(this, "Vui lòng nhập email và password", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Please fill email and password", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -69,6 +65,23 @@ public class LoginActivity extends BaseActivity {
 
         forgotPasswordText.setOnClickListener(v -> {
             startActivity(new Intent(this, ForgotPasswordActivity.class));
+        });
+    }
+
+    private void checkLoginStatus() {
+        ApiClient.checkLoginStatus(new ApiClient.LoginStatusCallback() {
+            @Override
+            public void onSuccess(UserInfo userInfo) {
+                // Token hợp lệ, chuyển sang MainActivity
+                startActivity(new Intent(LoginActivity.this, MainActivity.class));
+                finish();
+            }
+
+            @Override
+            public void onFailure(String error) {
+                // Token không hợp lệ hoặc lỗi kết nối, giữ nguyên màn hình đăng nhập
+                Toast.makeText(LoginActivity.this, "Please log in: " + error, Toast.LENGTH_SHORT).show();
+            }
         });
     }
 
@@ -91,7 +104,7 @@ public class LoginActivity extends BaseActivity {
                     // Gọi API để lấy thông tin user (userId)
                     fetchUserInfo(token, username, email);
                 } else {
-                    String errorMessage = "Đăng nhập thất bại";
+                    String errorMessage = "Login failed";
                     if (response.errorBody() != null) {
                         try {
                             String errorBody = response.errorBody().string();
@@ -107,7 +120,7 @@ public class LoginActivity extends BaseActivity {
 
             @Override
             public void onFailure(Call<LoginResponse> call, Throwable t) {
-                Toast.makeText(LoginActivity.this, "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(LoginActivity.this, "Connection error: " + t.getMessage(), Toast.LENGTH_LONG).show();
             }
         });
     }
@@ -121,14 +134,14 @@ public class LoginActivity extends BaseActivity {
                     UserInfo userInfo = response.body();
                     String userId = userInfo.getId();
 
-                    // Cập nhật lại thông tin đăng nhập với userId
+                    // Cập nhật lại thông lexical knowledge tin đăng nhập với userId
                     ApiClient.saveAuthData(token, username, userId, email);
 
-                    // Chuyển đến SplashActivity để đồng bộ
-                    startActivity(new Intent(LoginActivity.this, SplashActivity.class));
+                    // Chuyển đến MainActivity
+                    startActivity(new Intent(LoginActivity.this, MainActivity.class));
                     finish();
                 } else {
-                    String errorMessage = "Không thể lấy thông tin user";
+                    String errorMessage = "Can't retrieve user information";
                     if (response.errorBody() != null) {
                         try {
                             String errorBody = response.errorBody().string();
@@ -144,7 +157,7 @@ public class LoginActivity extends BaseActivity {
 
             @Override
             public void onFailure(Call<UserInfo> call, Throwable t) {
-                Toast.makeText(LoginActivity.this, "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(LoginActivity.this, "Connection error: " + t.getMessage(), Toast.LENGTH_LONG).show();
             }
         });
     }

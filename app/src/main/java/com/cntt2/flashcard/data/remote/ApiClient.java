@@ -35,8 +35,12 @@ public class ApiClient {
     private static ApiService apiService;
 
     public static void init(Context context) {
-        authManager = new AuthManager(context);
-        apiService = getApiService();
+        if (authManager == null) {
+            authManager = new AuthManager(context);
+        }
+        if (apiService == null) {
+            apiService = getApiService();
+        }
     }
 
     public static ApiService getApiService() {
@@ -75,17 +79,20 @@ public class ApiClient {
                     }
             };
 
-            // Cài đặt SSLContext
             final SSLContext sslContext = SSLContext.getInstance("SSL");
             sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
 
-            // Tạo HostnameVerifier bỏ qua kiểm tra hostname
             final HostnameVerifier hostnameVerifier = new HostnameVerifier() {
                 @Override
                 public boolean verify(String hostname, SSLSession session) {
                     return true;
                 }
             };
+
+            // Đảm bảo authManager đã được khởi tạo trước khi tạo Interceptor
+            if (authManager == null) {
+                throw new IllegalStateException("AuthManager is not initialized. Call ApiClient.init() first.");
+            }
 
             return new OkHttpClient.Builder()
                     .sslSocketFactory(sslContext.getSocketFactory(), (X509TrustManager) trustAllCerts[0])
@@ -100,7 +107,7 @@ public class ApiClient {
     private static class AuthInterceptor implements Interceptor {
         @Override
         public okhttp3.Response intercept(Chain chain) throws java.io.IOException {
-            String token = authManager.getToken(); // Lấy token từ AuthManager
+            String token = authManager.getToken();
             Request originalRequest = chain.request();
             if (token != null) {
                 Request newRequest = originalRequest.newBuilder()
@@ -113,26 +120,47 @@ public class ApiClient {
     }
 
     public static void saveAuthData(String token, String username, String userId, String email) {
+        if (authManager == null) {
+            throw new IllegalStateException("AuthManager is not initialized. Call ApiClient.init() first.");
+        }
         authManager.saveAuthData(token, username, userId, email);
     }
 
     public static String getToken() {
+        if (authManager == null) {
+            throw new IllegalStateException("AuthManager is not initialized. Call ApiClient.init() first.");
+        }
         return authManager.getToken();
     }
 
     public static String getUserId() {
+        if (authManager == null) {
+            throw new IllegalStateException("AuthManager is not initialized. Call ApiClient.init() first.");
+        }
         return authManager.getUserId();
     }
 
     public static boolean isLoggedIn() {
+        if (authManager == null) {
+            return false; // Trả về false nếu authManager chưa được khởi tạo
+        }
         return authManager.isLoggedIn();
     }
 
     public static void logout() {
+        if (authManager == null) {
+            Log.w("ApiClient", "AuthManager is null, cannot logout");
+            return;
+        }
         authManager.logout();
     }
 
     public static void logout(final LogoutCallback callback) {
+        if (apiService == null) {
+            Log.w("ApiClient", "apiService is null, skipping API logout");
+            callback.onFailure("API service not initialized");
+            return;
+        }
         Call<LogoutResponse> call = apiService.logout();
         call.enqueue(new Callback<LogoutResponse>() {
             @Override
@@ -158,6 +186,46 @@ public class ApiClient {
                 callback.onFailure("Logout error: " + t.getMessage());
             }
         });
+    }
+
+    public static void checkLoginStatus(final LoginStatusCallback callback) {
+        if (!isLoggedIn()) {
+            callback.onFailure("No token found");
+            return;
+        }
+
+        if (apiService == null) {
+            Log.w("ApiClient", "apiService is null, cannot check login status");
+            callback.onFailure("API service not initialized");
+            return;
+        }
+
+        Call<UserInfo> call = apiService.getCurrentUser();
+        call.enqueue(new Callback<UserInfo>() {
+            @Override
+            public void onResponse(Call<UserInfo> call, Response<UserInfo> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    // Token hợp lệ, người dùng đã đăng nhập
+                    callback.onSuccess(response.body());
+                } else {
+                    // Token không hợp lệ hoặc lỗi server
+                    authManager.logout(); // Xóa token không hợp lệ
+                    callback.onFailure("Invalid token or server error");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<UserInfo> call, Throwable t) {
+                // Lỗi kết nối
+                authManager.logout(); // Xóa token để yêu cầu đăng nhập lại
+                callback.onFailure("Connection error: " + t.getMessage());
+            }
+        });
+    }
+
+    public interface LoginStatusCallback {
+        void onSuccess(UserInfo userInfo);
+        void onFailure(String error);
     }
 
     public interface LogoutCallback {

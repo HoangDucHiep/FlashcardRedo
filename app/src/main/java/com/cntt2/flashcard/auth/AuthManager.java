@@ -2,6 +2,7 @@ package com.cntt2.flashcard.auth;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Log;
 
 import com.cntt2.flashcard.App;
 import com.cntt2.flashcard.data.remote.ApiService;
@@ -16,7 +17,7 @@ public class AuthManager {
     private static final String KEY_TOKEN = "auth_token";
     private static final String KEY_USERNAME = "username";
     private static final String KEY_USER_ID = "user_id";
-    private static final String KEY_EMAIL = "email"; // Thêm key cho email
+    private static final String KEY_EMAIL = "email";
 
     private final SharedPreferences prefs;
     private final ApiService apiService;
@@ -56,25 +57,39 @@ public class AuthManager {
     }
 
     public void logout() {
-        // Gọi API logout trước khi xóa dữ liệu local
-        Call<LogoutResponse> call = apiService.logout();
-        call.enqueue(new Callback<LogoutResponse>() {
-            @Override
-            public void onResponse(Call<LogoutResponse> call, Response<LogoutResponse> response) {
-                // Dù API thành công hay thất bại, vẫn xóa dữ liệu local
-                clearAuthData();
-            }
+        // Kiểm tra apiService trước khi gọi logout
+        if (apiService != null) {
+            Call<LogoutResponse> call = apiService.logout();
+            call.enqueue(new Callback<LogoutResponse>() {
+                @Override
+                public void onResponse(Call<LogoutResponse> call, Response<LogoutResponse> response) {
+                    // Dù API thành công hay thất bại, xóa dữ liệu local
+                    clearAuthData();
+                }
 
-            @Override
-            public void onFailure(Call<LogoutResponse> call, Throwable t) {
-                // Nếu API thất bại, vẫn xóa dữ liệu local để đảm bảo logout
-                clearAuthData();
-            }
-        });
+                @Override
+                public void onFailure(Call<LogoutResponse> call, Throwable t) {
+                    // Nếu API thất bại, vẫn xóa dữ liệu local
+                    clearAuthData();
+                    Log.e("AuthManager", "Logout API failed: " + t.getMessage());
+                }
+            });
+        } else {
+            // Nếu apiService null, chỉ xóa dữ liệu local
+            clearAuthData();
+            Log.w("AuthManager", "apiService is null, skipping API logout");
+        }
     }
 
     public void logout(LogoutCallback callback) {
-        // Gọi API logout và thông báo kết quả qua callback
+        // Kiểm tra apiService trước khi gọi logout
+        if (apiService == null) {
+            clearAuthData();
+            callback.onFailure("API service not initialized");
+            Log.w("AuthManager", "apiService is null, skipping API logout");
+            return;
+        }
+
         Call<LogoutResponse> call = apiService.logout();
         call.enqueue(new Callback<LogoutResponse>() {
             @Override
@@ -101,6 +116,7 @@ public class AuthManager {
         SharedPreferences.Editor editor = prefs.edit();
         editor.clear();
         editor.apply();
+        Log.d("AuthManager", "Auth data cleared");
     }
 
     public interface LogoutCallback {

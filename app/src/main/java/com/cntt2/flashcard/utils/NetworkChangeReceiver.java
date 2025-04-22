@@ -35,35 +35,25 @@ public class NetworkChangeReceiver extends BroadcastReceiver {
     private void showNetworkDialog(Context context) {
         isDialogShowing = true;
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        builder.setTitle("Mất kết nối mạng");
-        builder.setMessage("Không có kết nối internet. Vui lòng kiểm tra kết nối và thử lại.");
-        builder.setCancelable(false);
-
-        // Nút "Thử lại"
-        builder.setPositiveButton("Thử lại", (dialog, which) -> {
-            isDialogShowing = false;
-            if (isNetworkAvailable(context)) {
-                Toast.makeText(context, "Đã kết nối lại!", Toast.LENGTH_SHORT).show();
-            } else {
-                showNetworkDialog(context); // Hiển thị lại dialog nếu vẫn không có mạng
-            }
-        });
-
-        // Nút "Thoát"
-        builder.setNegativeButton("Thoát", (dialog, which) -> {
-            isDialogShowing = false;
-            // Thoát ứng dụng
-            Intent intent = new Intent(Intent.ACTION_MAIN);
-            intent.addCategory(Intent.CATEGORY_HOME);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            context.startActivity(intent);
-            if (context instanceof AppCompatActivity) {
-                ((AppCompatActivity) context).finishAffinity();
-            }
-        });
-
-        AlertDialog dialog = builder.create();
-        dialog.show();
+        ConfirmDialog.createConfirmDialog(context, "No connection", "No connection, please check your network and try again",
+            view -> {
+                isDialogShowing = false;
+                if (isNetworkAvailable(context)) {
+                    Toast.makeText(context, "Reconnected!", Toast.LENGTH_SHORT).show();
+                } else {
+                    showNetworkDialog(context); // Show dialog again if still no network
+                }
+            },
+            view -> {
+                isDialogShowing = false;
+                // Exit the app
+                Intent intent = new Intent(Intent.ACTION_MAIN);
+                intent.addCategory(Intent.CATEGORY_HOME);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(intent);
+                if (context instanceof AppCompatActivity) {
+                    ((AppCompatActivity) context).finishAffinity();
+                }
+            }, true).show();
     }
 }

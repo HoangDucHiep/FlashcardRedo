@@ -38,7 +38,7 @@ public class RegisterActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_register);
 
-        // Khởi tạo UI
+        // Initialize UI
         usernameEditText = findViewById(R.id.username_edit_text);
         emailEditText = findViewById(R.id.email_edit_text);
         passwordEditText = findViewById(R.id.password_edit_text);
@@ -47,7 +47,7 @@ public class RegisterActivity extends BaseActivity {
         loginText = findViewById(R.id.login_text);
         apiService = App.getInstance().getApiService();
 
-        // Xử lý sự kiện nhấn nút Register
+        // Handle Register button click
         registerButton.setOnClickListener(v -> {
             String username = usernameEditText.getText().toString().trim();
             String email = emailEditText.getText().toString().trim();
@@ -55,19 +55,19 @@ public class RegisterActivity extends BaseActivity {
             String confirmPassword = confirmPasswordEditText.getText().toString().trim();
 
             if (username.isEmpty() || email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
-                Toast.makeText(this, "Vui lòng điền đầy đủ thông tin", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Please fill all required fields", Toast.LENGTH_SHORT).show();
                 return;
             }
 
             if (!password.equals(confirmPassword)) {
-                Toast.makeText(this, "Mật khẩu không khớp", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Passwords do not match", Toast.LENGTH_SHORT).show();
                 return;
             }
 
             register(username, email, password);
         });
 
-        // Chuyển sang màn hình Đăng nhập
+        // Navigate to Login screen
         loginText.setOnClickListener(v -> {
             startActivity(new Intent(this, LoginActivity.class));
         });
@@ -81,11 +81,11 @@ public class RegisterActivity extends BaseActivity {
             @Override
             public void onResponse(Call<Void> call, Response<Void> response) {
                 if (response.isSuccessful()) {
-                    Toast.makeText(RegisterActivity.this, "Đăng ký thành công! Đang đăng nhập...", Toast.LENGTH_SHORT).show();
-                    // Sau khi đăng ký thành công, tự động đăng nhập
+                    Toast.makeText(RegisterActivity.this, "Registration successful! Logging in...", Toast.LENGTH_SHORT).show();
+                    // Automatically log in after successful registration
                     loginAfterRegister(email, password);
                 } else {
-                    String errorMessage = "Đăng ký thất bại";
+                    String errorMessage = "Registration failed";
                     if (response.errorBody() != null) {
                         try {
                             String errorBody = response.errorBody().string();
@@ -101,7 +101,7 @@ public class RegisterActivity extends BaseActivity {
 
             @Override
             public void onFailure(Call<Void> call, Throwable t) {
-                Toast.makeText(RegisterActivity.this, "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(RegisterActivity.this, "Connection error: " + t.getMessage(), Toast.LENGTH_LONG).show();
             }
         });
     }
@@ -119,13 +119,13 @@ public class RegisterActivity extends BaseActivity {
                     String username = loginResponse.getUsername();
                     String email = loginResponse.getEmail();
 
-                    // Lưu token tạm thời vào AuthManager trước khi gọi getCurrentUser
+                    // Temporarily save token in AuthManager before calling getCurrentUser
                     ApiClient.saveAuthData(token, username, null, email);
 
-                    // Gọi API để lấy thông tin user (userId)
+                    // Call API to fetch user information (userId)
                     fetchUserInfo(token, username, email);
                 } else {
-                    String errorMessage = "Đăng nhập sau khi đăng ký thất bại";
+                    String errorMessage = "Login after registration failed";
                     if (response.errorBody() != null) {
                         try {
                             String errorBody = response.errorBody().string();
@@ -141,7 +141,7 @@ public class RegisterActivity extends BaseActivity {
 
             @Override
             public void onFailure(Call<LoginResponse> call, Throwable t) {
-                Toast.makeText(RegisterActivity.this, "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(RegisterActivity.this, "Connection error: " + t.getMessage(), Toast.LENGTH_LONG).show();
             }
         });
     }
@@ -155,14 +155,14 @@ public class RegisterActivity extends BaseActivity {
                     UserInfo userInfo = response.body();
                     String userId = userInfo.getId();
 
-                    // Cập nhật lại thông tin đăng nhập với userId
+                    // Update login information with userId
                     ApiClient.saveAuthData(token, username, userId, email);
 
-                    // Chuyển đến SplashActivity để đồng bộ
+                    // Navigate to SplashActivity for synchronization
                     startActivity(new Intent(RegisterActivity.this, SplashActivity.class));
                     finish();
                 } else {
-                    String errorMessage = "Không thể lấy thông tin user";
+                    String errorMessage = "Unable to fetch user information";
                     if (response.errorBody() != null) {
                         try {
                             String errorBody = response.errorBody().string();
@@ -179,7 +179,7 @@ public class RegisterActivity extends BaseActivity {
 
             @Override
             public void onFailure(Call<UserInfo> call, Throwable t) {
-                Toast.makeText(RegisterActivity.this, "Lỗi kết nối: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(RegisterActivity.this, "Connection error: " + t.getMessage(), Toast.LENGTH_LONG).show();
             }
         });
     }

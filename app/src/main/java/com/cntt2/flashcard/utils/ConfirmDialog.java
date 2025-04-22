@@ -10,6 +10,11 @@ import com.cntt2.flashcard.R;
 
 public class ConfirmDialog {
     public static AlertDialog createConfirmDialog(Context context, String title, String message, View.OnClickListener yes, View.OnClickListener no) {
+        return createConfirmDialog(context, title, message, yes, no, true);
+    }
+
+
+    public static AlertDialog createConfirmDialog(Context context, String title, String message, View.OnClickListener yes, View.OnClickListener no, boolean canclable) {
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
         View dialogView = View.inflate(context, R.layout.dialog_confirm_cancel, null); // Sử dụng View.inflate với context
         builder.setView(dialogView);
@@ -37,6 +42,8 @@ public class ConfirmDialog {
             no.onClick(view);
             dialog.dismiss();
         });
+
+        dialog.setCancelable(canclable);
 
         return dialog;
     }
